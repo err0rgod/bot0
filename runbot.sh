@@ -25,4 +25,4 @@ echo "Installing/updating requirements..."
 pip install -r requirements.txt
 
 echo "Starting the bot..."
-python v2.py
+python scraper/v2.py
