@@ -10,3 +10,4 @@ echo "Resetting current branch ($BRANCH) to upstream..."
 git reset --hard origin/$BRANCH
 
 echo "Update complete."
+chmod +x *.sh
