@@ -16,7 +16,7 @@ resend.api_key = os.getenv("RESEND_API_KEY", "")
 
 
 def _fetch_subscribers_from_blob() -> list:
-    """Fetch the latest subscriber list from Azure Blob Storage (subscribers_backup.json)."""
+    """Fetch the latest subscriber list from Azure Blob Storage (subscribers.json)."""
     conn_str = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
     container_name = os.getenv("AZURE_CONTAINER_NAME", "news")
 
@@ -28,7 +28,7 @@ def _fetch_subscribers_from_blob() -> list:
         from azure.storage.blob import BlobServiceClient
         blob_service = BlobServiceClient.from_connection_string(conn_str)
         container_client = blob_service.get_container_client(container_name)
-        blob_client = container_client.get_blob_client("subscribers_backup.json")
+        blob_client = container_client.get_blob_client("subscribers.json")
 
         data = json.loads(blob_client.download_blob().readall().decode("utf-8-sig"))
         # Only send to active subscribers
