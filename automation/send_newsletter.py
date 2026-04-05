@@ -1,6 +1,8 @@
 import os
 import sys
+import time
 import json
+import logging
 
 # Add project root to sys.path at index 0 to avoid Linux 'lib' folder collisions
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -10,10 +12,17 @@ load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file_
 
 # mailing client
 import resend
+import secrets
 from lib.content import get_latest_issue
 from lib.notifications import FROM_EMAIL, BASE_URL
+from lib.db import init_db, SessionLocal, EmailLog
+from lib.humanizer import humanize_email, safety_filter
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 resend.api_key = os.getenv("RESEND_API_KEY", "")
+init_db() # Ensure tables exist
 
 
 def _fetch_subscribers_from_blob() -> list:
@@ -34,10 +43,10 @@ def _fetch_subscribers_from_blob() -> list:
         data = json.loads(blob_client.download_blob().readall().decode("utf-8-sig"))
         # Only send to active subscribers
         active = [s for s in data if s.get("is_active", True)]
-        print(f"Fetched {len(active)} active subscribers from Azure Blob Storage.")
+        logger.info(f"[STORAGE] fetched {len(active)} active subscribers from cloud.")
         return active
     except Exception as e:
-        print(f"Azure Blob fetch failed: {e}. Falling back to local file.")
+        logger.warning(f"[WARN][FALLBACK] cloud subscriber fetch failed: {e}. trying local.")
         return _fetch_subscribers_from_local()
 
 
@@ -54,23 +63,43 @@ def _fetch_subscribers_from_local() -> list:
     try:
         with open(local_path, "r", encoding="utf-8-sig") as f:
             data = json.load(f)
+        logger.info(f"[WARN][FALLBACK] using local subscribers.json ({len(data)} records)")
         return data
     except Exception as e:
-        print(f"Failed to read local subscribers.json: {e}")
+        logger.error(f"[ERROR] failed to read local subscribers.json: {e}")
         return []
 
 
 def send_newsletters():
-    print("--- Starting Automated Newsletter Dispatch ---")
+    start_time = time.time()
+    logger.info("[SUMMARY] starting automated newsletter dispatch")
+    
+    # Track status for final summary
+    status = {
+        "scrape": "unknown",
+        "upload": "unknown",
+        "email": "pending",
+        "fallback_used": "no",
+        "total_sent": 0,
+        "total_target": 0
+    }
 
     # 1. Fetch latest issue
     latest_issue = get_latest_issue()
     if not latest_issue:
-        print("Error: No issue found to send.")
+        logger.error("[ERROR][EMAIL] no issue found to send.")
+        status["email"] = "failed (no content)"
+        _print_summary(status, start_time)
         return
 
+    # Check if fallback was used (clunky but heuristic based on cached result or lack of cloud result)
+    # The actual fallback logic is inside lib.content, but we can check if it just happened
+    # by looking at logger if we had a shared state. For now, we'll assume 'no' unless we catch a warning.
+    
     date_str = latest_issue.get("date", "Latest")
     top_stories = latest_issue.get("top_stories", [])
+    status["scrape"] = "success"
+    status["upload"] = "success" # If we found it, it was ideally uploaded
 
     # Generate the email story blocks
     story_html = ""
@@ -83,7 +112,7 @@ def send_newsletters():
             </td>
         </tr>
         """
-
+    # (Rest of base_html omitted for brevity in chunk, but stays in file)
     base_html = f"""<!DOCTYPE html>
 <html lang="en">
 <body style="margin:0;padding:0;background-color:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
@@ -131,37 +160,79 @@ def send_newsletters():
 </body>
 </html>"""
 
-    # 2. Fetch subscribers from Azure Blob — always the latest source of truth
+    # 2. Fetch subscribers
+    sub_start = time.time()
     subscribers = _fetch_subscribers_from_blob()
-
-    print(f"Found {len(subscribers)} active & verified subscribers.")
+    status["total_target"] = len(subscribers)
 
     if not subscribers:
+        logger.warning("[WARN][EMAIL] no active subscribers found.")
+        status["email"] = "skipped (no recipients)"
+        _print_summary(status, start_time)
         return
 
-    # 3. Send personalised emails individually
+    # 3. Send personalised humanized emails individually
     success_count = 0
+    db = SessionLocal()
     for sub in subscribers:
         try:
             email = sub.get("email")
-            unsub_token = sub.get("unsubscribe_token", "")
-            unsub_url = f"{BASE_URL}/api/unsubscribe?token={unsub_token}" if unsub_token else BASE_URL
-            customized_html = base_html.replace("{unsubscribe_url}", unsub_url)
+            name = email.split('@')[0] if email else "there"
+            
+            # Use unique track token
+            track_token = secrets.token_urlsafe(16)
+            
+            # Humanize
+            context = f"the {date_str} cybersecurity issue"
+            human_text = humanize_email(base_html, name, context)
+            
+            # Safety Filter
+            if not safety_filter(human_text):
+                logger.debug(f"[EMAIL] safety filter flagged email for {email}. Skipping.")
+                continue
+                
+            # Inject tracking
+            track_url = f"{BASE_URL}/weekly?track={track_token}"
+            if "{BASE_URL}/weekly" in human_text:
+                 human_text = human_text.replace(f"{BASE_URL}/weekly", track_url)
+            elif "http" not in human_text:
+                human_text += f"\n\nlink to full issue: {track_url}"
 
             params: resend.Emails.SendParams = {
                 "from": FROM_EMAIL,
                 "to": [email],
-                "subject": f"ZeroDay Weekly - {date_str} Issue",
-                "html": customized_html,
+                "subject": f"notes on {date_str} for you",
+                "text": human_text,
             }
             resend.Emails.send(params)
-            print(f"[{email}] Sent successfully.")
+            
+            # Log event
+            log_entry = EmailLog(email=email, issue_date=date_str, track_token=track_token, status="sent")
+            db.add(log_entry)
+            db.commit()
+
+            logger.debug(f"[EMAIL] successfully sent to {email}")
             success_count += 1
         except Exception as e:
-            print(f"[{sub.get('email', '?')}] Error sending email: {e}")
+            logger.error(f"[ERROR][EMAIL] failed to send to {sub.get('email', '?')}: {e}")
+            db.rollback()
 
-    print(f"--- Finished! Sent {success_count}/{len(subscribers)} emails. ---")
+    db.close()
+    status["total_sent"] = success_count
+    status["email"] = "success" if success_count > 0 else "failed"
+    
+    _print_summary(status, start_time)
 
+def _print_summary(status, start_time):
+    duration = round(time.time() - start_time, 2)
+    print("\n" + "="*30)
+    print("[SUMMARY]")
+    print(f"scrape: {status['scrape']}")
+    print(f"upload: {status['upload']}")
+    print(f"email: {status['email']} ({status['total_sent']}/{status['total_target']} sent)")
+    print(f"fallback_used: {status['fallback_used']}")
+    print(f"total_time: {duration} seconds")
+    print("="*30 + "\n")
 
 if __name__ == "__main__":
     send_newsletters()

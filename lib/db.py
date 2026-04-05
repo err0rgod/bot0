@@ -51,6 +51,17 @@ class ReadSession(Base):
     duration_seconds = Column(Integer, default=0)
     timestamp = Column(DateTime, default=datetime.datetime.utcnow)
 
+class EmailLog(Base):
+    __tablename__ = "email_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String, index=True)
+    issue_date = Column(String, index=True)
+    track_token = Column(String, unique=True, index=True)
+    sent_at = Column(DateTime, default=datetime.datetime.utcnow)
+    clicked_at = Column(DateTime, nullable=True)
+    status = Column(String, default="sent")
+
 def init_db():
     Base.metadata.create_all(bind=engine)
 

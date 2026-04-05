@@ -1,7 +1,12 @@
 import os
 import json
+import time
+import logging
 from datetime import datetime
 from typing import List, Dict, Optional
+
+# Configure logging with structured format
+logger = logging.getLogger(__name__)
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.getenv("DATA_DIR", os.path.join(PROJECT_ROOT, "data"))
@@ -20,14 +25,32 @@ CACHE_TTL = 60 # 1 minute
 
 def _get_blob_service():
     conn_str = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
-    if not conn_str: return None, None
+    if not conn_str: 
+        logger.debug("[STORAGE] No Azure connection string found.")
+        return None, None
     try:
         from azure.storage.blob import BlobServiceClient
         service = BlobServiceClient.from_connection_string(conn_str)
         container = os.getenv("AZURE_CONTAINER_NAME", "news")
         return service, container
-    except Exception:
+    except Exception as e:
+        logger.debug(f"[STORAGE] Failed to initialize BlobServiceClient: {e}")
         return None, None
+
+def _retry_azure_call(func, *args, **kwargs):
+    """Internal helper for exponential backoff retries on Azure calls."""
+    max_attempts = 3
+    for attempt in range(1, max_attempts + 1):
+        try:
+            return func(*args, **kwargs)
+        except Exception as e:
+            if attempt == max_attempts:
+                logger.error(f"[ERROR][STORAGE] cloud operation failed permanently after {max_attempts} attempts: {e}")
+                raise e
+            delay = 2 ** attempt
+            logger.error(f"[ERROR][STORAGE] operation failed (attempt {attempt}/{max_attempts})")
+            logger.info(f"[RETRY] retrying in {delay}s...")
+            time.sleep(delay)
 
 def get_issue_dates() -> List[str]:
     """Returns a sorted list of all available issue dates (YYYY-MM-DD), newest first."""
@@ -41,23 +64,29 @@ def get_issue_dates() -> List[str]:
             
         try:
             container_client = service.get_container_client(container)
+            
+            def _list_blobs():
+                return list(container_client.list_blobs(name_starts_with="issue_"))
+            
+            blobs = _retry_azure_call(_list_blobs)
             dates = []
-            for blob in container_client.list_blobs(name_starts_with="issue_"):
-                # Extract date from "issue_2026-03-24.json"
+            for blob in blobs:
                 try:
                     date_str = blob.name.replace("issue_", "").replace(".json", "")
                     datetime.strptime(date_str, "%Y-%m-%d")
                     dates.append(date_str)
                 except ValueError:
-                    pass
+                    continue
+            
             dates.sort(reverse=True)
             _blob_cache["dates"] = dates
             _blob_cache["last_checked"] = time.time()
+            logger.info(f"[STORAGE] fetched list of {len(dates)} available issues from cloud.")
             return dates
-        except Exception as e:
-            print(f"Error listing blobs: {e}")
-            pass # Fall back to local
+        except Exception:
+            logger.warning("[WARN][FALLBACK] cloud fetch failed for issue dates, falling back to local storage.")
     
+    # Fallback to local
     if not os.path.exists(OUTPUT_DIR):
         return []
     
@@ -84,25 +113,34 @@ def get_issue_data(date_str: str) -> Optional[Dict]:
         try:
             container_client = service.get_container_client(container)
             blob_client = container_client.get_blob_client(f"issue_{date_str}.json")
-            data = json.loads(blob_client.download_blob().readall())
-            _blob_cache["issues"][date_str] = data
-            return data
-        except Exception as e:
-            print(f"Error downloading blob for {date_str}: {e}")
-            pass # Fall back to local
             
-    json_path = os.path.join(OUTPUT_DIR, date_str, "newsletter_prepared_data.json")
-    if not os.path.exists(json_path):
-        return None
-        
-    try:
-        with open(json_path, 'r', encoding='utf-8') as f:
-            data = json.load(f)
+            def _download():
+                return json.loads(blob_client.download_blob().readall())
+            
+            data = _retry_azure_call(_download)
             _blob_cache["issues"][date_str] = data
+            logger.debug(f"[STORAGE] downloaded issue for {date_str} from cloud.")
             return data
-    except Exception as e:
-        print(f"Error reading {json_path}: {e}")
-        return None
+        except Exception:
+            logger.warning(f"[WARN][FALLBACK] cloud download failed for {date_str}, check local cache.")
+            
+    # Priority 1: Check standard local output path for the date
+    json_path = os.path.join(OUTPUT_DIR, date_str, "newsletter_prepared_data.json")
+    # Priority 2: Simple fallback to data dir as requested by user
+    fallback_path = os.path.join(DATA_DIR, "newsletter_prepared_data.json")
+    
+    for path in [json_path, fallback_path]:
+        if os.path.exists(path):
+            try:
+                with open(path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    _blob_cache["issues"][date_str] = data
+                    logger.info(f"[WARN][FALLBACK] using local cached newsletter data for {date_str}")
+                    return data
+            except Exception as e:
+                logger.error(f"[ERROR] failed to read local fallback for {date_str}: {e}")
+                
+    return None
 
 def get_latest_issue() -> Optional[Dict]:
     """Returns the latest issue data, if any."""

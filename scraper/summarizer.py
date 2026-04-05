@@ -30,6 +30,8 @@ def summarize_article(title: str, content: str) -> str:
 
     prompt = f"""You are an expert cybersecurity analyst writing for a general audience.
 Summarize the following news article in highly engaging, human-like, and slightly creative prose. 
+Target a length of 300 to 600 words for the final summary.
+
 Break the content into small, highly readable paragraphs (2-4 lines max) that keep the reader hooked line-by-line.
 Your summary must capture: 
 1. The Core Threat (Intro)
@@ -46,12 +48,12 @@ Return ONLY the summary paragraphs with no titles, headers, or introductory phra
 
     response_text = client.generate(
         messages=[
-            {"role": "system", "content": "You are a helpful, creative cybersecurity writer who explains complex topics engagingly in concise paragraphs."},
+            {"role": "system", "content": "You are a helpful, creative cybersecurity writer who explains complex topics engagingly in concise paragraphs. You always aim for a word count between 300 and 600 words."},
             {"role": "user", "content": prompt}
         ],
         model=MODEL,
         temperature=0.6,
-        max_tokens=500
+        max_tokens=1000
     )
     return response_text.strip()
 
@@ -78,7 +80,8 @@ Build curiosity and keep the reader hooked line-by-line using a modern tech news
 Write a compelling hook structured in 1-2 short paragraphs. It must immediately tell the reader what happened, why it matters, and who is at risk. Be direct, clear, and highly engaging.
 
 **[DEEP SUMMARY]**
-Write a thorough, multi-paragraph breakdown. Organise it into clearly separated, concise paragraphs (2-4 lines max each) following a clear structure (Intro -> Insight -> Takeaway):
+Write a thorough, multi-paragraph breakdown with a target length of 300 to 600 words. 
+Organise it into clearly separated, concise paragraphs (2-4 lines max each) following a clear structure (Intro -> Insight -> Takeaway):
 - What exactly happened (incident/vulnerability)
 - Who is affected and how
 - The real-world impact and consequences
@@ -98,12 +101,12 @@ Article Content: {compressed}"""
 
     text = client.generate(
         messages=[
-            {"role": "system", "content": "You are a professional cybersecurity journalist who writes in a highly engaging, clear, readable style using short paragraphs."},
+            {"role": "system", "content": "You are a professional cybersecurity journalist who writes in a highly engaging, clear, readable style using short paragraphs. For deep summaries, you always target 300-600 words."},
             {"role": "user", "content": prompt}
         ],
         model=MODEL,
         temperature=0.5,
-        max_tokens=1500
+        max_tokens=2000
     )
 
     text = text.strip()

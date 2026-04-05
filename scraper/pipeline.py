@@ -1,5 +1,6 @@
 import json
 import os
+import time
 import logging
 from dotenv import load_dotenv
 
@@ -10,9 +11,25 @@ from summarizer import summarize_article, generate_two_level_summary
 from categorizer import categorize_article
 from utils import is_duplicate_title, rank_article
 
-# Setup pipeline logging
+# Setup pipeline logging with structured format
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
+
+def _retry_storage(func, *args, **kwargs):
+    """Internal helper for exponential backoff retries on cloud uploads."""
+    max_attempts = 3
+    for attempt in range(1, max_attempts + 1):
+        try:
+            return func(*args, **kwargs)
+        except Exception as e:
+            if attempt == max_attempts:
+                logger.error(f"[ERROR][STORAGE] cloud upload failed permanently after {max_attempts} attempts: {e}")
+                return False
+            delay = 2 ** attempt
+            logger.error(f"[ERROR][STORAGE] upload failed (attempt {attempt}/{max_attempts})")
+            logger.info(f"[RETRY] retrying in {delay}s...")
+            time.sleep(delay)
+    return False
 
 def generate_newsletter(json_data: dict, output_file: str = None):
     """
@@ -63,11 +80,13 @@ def process_scraped_json(file_path: str, output_path: str = None):
     Outputs the final segregated structure into output/newsletter.json.
     """
     if not os.path.exists(file_path):
-        logger.error(f"File {file_path} not found.")
-        return {}
+        logger.error(f"[ERROR] file {file_path} not found.")
+        return {"scrape": "failed", "upload": "skipped"}
 
     with open(file_path, "r", encoding="utf-8") as f:
         data = json.load(f)
+        
+    logger.info(f"[SCRAPER] processing raw data from {os.path.basename(file_path)}")
         
     if not output_path:
         from datetime import datetime
@@ -110,7 +129,7 @@ def process_scraped_json(file_path: str, output_path: str = None):
         is_dup = False
         for seen_t in seen_titles:
             if is_duplicate_title(title, seen_t, threshold=0.8):
-                logger.info(f"Skipping '{title[:30]}...': fuzzy duplicate of '{seen_t[:30]}...'")
+                logger.debug(f"[FILTER] skipping '{title[:30]}...': fuzzy duplicate")
                 is_dup = True
                 break
         if is_dup:
@@ -163,10 +182,10 @@ def process_scraped_json(file_path: str, output_path: str = None):
                 "source": "RSS Scraping",
                 "url": url
             })
-            logger.info(" -> Successfully processed and added to candidate stories.")
+            logger.debug(f"[SCRAPER] processed story: {title}")
             
         except Exception as e:
-            logger.error(f"Error AI processing article '{title}': {e}")
+            logger.error(f"[ERROR] AI processing failed for article '{title}': {e}")
 
 
     # --- PROCESS CVES ---
@@ -207,9 +226,11 @@ def process_scraped_json(file_path: str, output_path: str = None):
     with open(output_path, "w", encoding="utf-8") as out:
         json.dump(final_output, out, indent=4)
         
-    logger.info(f"Structured JSON saved to {output_path}")
+    logger.info(f"[FILTER] selected {len(top_5_stories)} high-priority items.")
+    logger.info(f"[STORAGE] saved local issue data ({(os.path.getsize(output_path)//1024)}KB)")
 
     # Cloud Storage Upload (Azure Blob Storage)
+    upload_status = "skipped"
     azure_conn_str = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
     container_name = os.getenv("AZURE_CONTAINER_NAME", "news")
     if azure_conn_str:
@@ -220,25 +241,34 @@ def process_scraped_json(file_path: str, output_path: str = None):
             
             if not container_client.exists():
                 container_client.create_container()
-                
+            
             # Upload dated file
             blob_name = f"issue_{final_output['date']}.json"
-            blob_client = container_client.get_blob_client(blob_name)
-            blob_client.upload_blob(json.dumps(final_output), overwrite=True)
-            
-            # Upload latest alias
-            latest_client = container_client.get_blob_client("latest.json")
-            latest_client.upload_blob(json.dumps(final_output), overwrite=True)
-            
-            logger.info(f"Successfully uploaded {blob_name} and latest.json to Azure Blob Storage ({container_name})")
-        except ImportError:
-            logger.error("azure-storage-blob is not installed. Cloud upload skipped.")
+            def _upload_all():
+                # Upload dated file
+                container_client.get_blob_client(blob_name).upload_blob(json.dumps(final_output), overwrite=True)
+                # Upload latest alias
+                container_client.get_blob_client("latest.json").upload_blob(json.dumps(final_output), overwrite=True)
+                return True
+
+            if _retry_storage(_upload_all):
+                logger.info(f"[STORAGE] uploaded {blob_name} and latest.json (Azure)")
+                upload_status = "success"
+            else:
+                upload_status = "failed"
+                
         except Exception as e:
-            logger.error(f"Failed to upload to Azure Blob Storage: {e}")
+            logger.error(f"[ERROR][STORAGE] cloud upload initialization failed: {e}")
+            upload_status = "failed"
 
     
     # Also generate text version
     text_out_path = output_path.replace(".json", ".txt")
     generate_newsletter(final_output, text_out_path)
 
-    return final_output
+    return {
+        "scrape": "success",
+        "upload": upload_status,
+        "issue_date": final_output['date'],
+        "stories": len(top_5_stories)
+    }
