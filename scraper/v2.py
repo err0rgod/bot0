@@ -11,32 +11,37 @@ from newspaper import Article
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
+# sources to fetch the content 
 NEWS_FEEDS = [
-    "https://feeds.feedburner.com/TheHackersNews",
+    "https://feeds.feedburner.com/TheHackersNews", # The Hacker News
     "https://www.bleepingcomputer.com/feed/",
     "https://krebsonsecurity.com/feed/",
     # "https://www.darkreading.com/rss.xml",
-    "https://blog.cloudflare.com/rss/",
-    "https://googleprojectzero.blogspot.com/feeds/posts/default?alt=rss"
+    "https://blog.cloudflare.com/rss/", # Cloudflare Blog
+    "https://googleprojectzero.blogspot.com/feeds/posts/default?alt=rss" # Google Project Zero
 ]
 
+# NVD api for cves
 NVD_API = "https://services.nvd.nist.gov/rest/json/cves/2.0"
 
+
+# Multiple user agents to avoid getting blocked
 USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/115.0 Safari/537.36",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/114.0 Safari/537.36",
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/113.0 Safari/537.36"
 ]
 
-
+# random delays to avoid blocking 
 def random_delay():
     time.sleep(random.uniform(1, 3))
 
-
+# picking random user agent
 def get_headers():
     return {"User-Agent": random.choice(USER_AGENTS)}
 
 
+# extract article content using newspaper3k
 def extract_article(url):
     try:
         random_delay()
@@ -52,11 +57,12 @@ def extract_article(url):
         return ""
 
 
+# scrape news from RSS feeds
 def scrape_news(max_items=5):
 
     news_data = []
     seen_links = set()
-
+# loop through the news feeds
     for feed_url in NEWS_FEEDS:
 
         logging.info(f"Reading RSS: {feed_url}")
@@ -100,7 +106,7 @@ def scrape_news(max_items=5):
 
     return news_data
 
-
+# scraping cves from NVD API
 def scrape_cves(max_items=10):
 
     logging.info("Fetching latest CVEs")
@@ -111,6 +117,7 @@ def scrape_cves(max_items=10):
         "sortOrder": "desc"
     }
 
+    # retry mechanism
     for attempt in range(3):
         try:
             response = requests.get(NVD_API, headers=get_headers(), params=params, timeout=20)

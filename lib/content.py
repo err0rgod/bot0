@@ -14,8 +14,9 @@ _blob_cache = {
     "last_checked": 0
 }
 
+# cache time set to 1 minute
 import time
-CACHE_TTL = 600 # 10 minutes
+CACHE_TTL = 60 # 1 minute
 
 def _get_blob_service():
     conn_str = os.getenv("AZURE_STORAGE_CONNECTION_STRING")

@@ -4,10 +4,11 @@ import json
 
 # Add project root to sys.path at index 0 to avoid Linux 'lib' folder collisions
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
+# Load credentials from .env file
 from dotenv import load_dotenv
 load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env"), override=True)
 
+# mailing client
 import resend
 from lib.content import get_latest_issue
 from lib.notifications import FROM_EMAIL, BASE_URL
