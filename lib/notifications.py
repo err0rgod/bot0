@@ -2,13 +2,74 @@ import os
 import resend
 from dotenv import load_dotenv
 
-# Load environment variables from the root directory's .env
-_env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), ".env")
-load_dotenv(_env_path, override=True)
+# Load environment variables from the project root .env (one level above /lib).
+_project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_env_path = os.path.join(_project_root, ".env")
+if os.path.exists(_env_path):
+    # Ensure project .env wins over stale system/user env vars.
+    load_dotenv(_env_path, override=True)
 
 resend.api_key = os.getenv("RESEND_API_KEY", "")
-BASE_URL = os.getenv("BASE_URL", "http://localhost:8000").rstrip("/")
-FROM_EMAIL = os.getenv("FROM_EMAIL", "ZeroDay Weekly <onboarding@resend.dev>")
+BASE_URL = os.getenv("BASE_URL", "https://zerodaily.in").rstrip("/")
+FROM_EMAIL = os.getenv("FROM_EMAIL", "ZeroDay Weekly <news@zerodaily.in>")
+
+# Guardrail: if legacy domain values are present in env, auto-upgrade to current domain.
+if "hack2rank.com" in BASE_URL.lower():
+    BASE_URL = "https://zerodaily.in"
+if "hack2rank.com" in FROM_EMAIL.lower():
+    FROM_EMAIL = "ZeroDay Weekly <news@zerodaily.in>"
+
+
+def _extract_domain(address: str) -> str:
+    """
+    Extract domain from either:
+    - plain email: user@example.com
+    - display format: Name <user@example.com>
+    """
+    raw = (address or "").strip()
+    if "<" in raw and ">" in raw:
+        raw = raw.split("<", 1)[1].split(">", 1)[0].strip()
+    if "@" not in raw:
+        return ""
+    return raw.rsplit("@", 1)[1].lower().strip()
+
+
+def validate_sender_domain(from_email: str | None = None) -> tuple[bool, str]:
+    """
+    Check whether sender domain is allowed by Resend.
+    Returns (is_valid, reason).
+    """
+    sender = from_email or FROM_EMAIL
+    domain = _extract_domain(sender)
+    if not domain:
+        return False, f"Invalid FROM_EMAIL format: {sender!r}"
+
+    # Resend sandbox domain - useful for local tests.
+    if domain == "resend.dev":
+        return True, "Using resend.dev sandbox domain."
+
+    if not resend.api_key:
+        return False, "Missing RESEND_API_KEY; cannot validate sender domain."
+
+    try:
+        resp = resend.Domains.list()  # Expected shape: {'data': [{name, status, ...}]}
+        domains = []
+        if isinstance(resp, dict):
+            domains = resp.get("data", []) or []
+        elif isinstance(resp, list):
+            domains = resp
+
+        for item in domains:
+            name = str(item.get("name", "")).lower().strip()
+            status = str(item.get("status", "")).lower().strip()
+            if name == domain:
+                if status in {"verified", "active"}:
+                    return True, f"Sender domain '{domain}' is verified."
+                return False, f"Sender domain '{domain}' exists but status is '{status or 'unknown'}'."
+
+        return False, f"Sender domain '{domain}' is not added in Resend domains."
+    except Exception as exc:
+        return False, f"Could not verify sender domain via Resend API: {exc}"
 
 
 def send_verification_email(email: str, token: str) -> bool:
@@ -121,7 +182,7 @@ def send_custom_email(emails: list[str], subject: str, html_body: str) -> bool:
     try:
         params: resend.Emails.SendParams = {
             "from": FROM_EMAIL,
-            "to": ["undisclosed-recipients@zeroday.news"], # Use a generic 'to' 
+            "to": ["undisclosed-recipients@zerodaily.in"], # Use a generic 'to'
             "bcc": emails, # Hide all recipient emails using BCC
             "subject": subject,
             "html": html_body,

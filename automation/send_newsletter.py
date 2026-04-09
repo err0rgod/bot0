@@ -14,7 +14,7 @@ load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file_
 import resend
 import secrets
 from lib.content import get_latest_issue
-from lib.notifications import FROM_EMAIL, BASE_URL
+from lib.notifications import FROM_EMAIL, BASE_URL, validate_sender_domain
 from lib.db import init_db, SessionLocal, EmailLog
 from lib.humanizer import humanize_email, safety_filter
 
@@ -100,6 +100,18 @@ def send_newsletters():
     top_stories = latest_issue.get("top_stories", [])
     status["scrape"] = "success"
     status["upload"] = "success" # If we found it, it was ideally uploaded
+
+    # Validate sender config up front to avoid generating content when delivery must fail.
+    sender_ok, sender_reason = validate_sender_domain(FROM_EMAIL)
+    if not sender_ok:
+        logger.error(
+            f"[ERROR][EMAIL] Sender domain validation failed for FROM_EMAIL={FROM_EMAIL!r}. {sender_reason} "
+            "Fix: verify domain in Resend dashboard and update DNS (SPF/DKIM), or use a verified sender."
+        )
+        status["email"] = "failed (sender domain not verified)"
+        _print_summary(status, start_time)
+        return
+    logger.info(f"[EMAIL] sender check passed. {sender_reason}")
 
     # Generate the email story blocks
     story_html = ""
