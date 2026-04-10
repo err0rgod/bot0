@@ -16,7 +16,8 @@ NEWS_FEEDS = [
     "https://feeds.feedburner.com/TheHackersNews", # The Hacker News
     "https://www.bleepingcomputer.com/feed/",
     "https://krebsonsecurity.com/feed/",
-    # "https://www.darkreading.com/rss.xml",
+    "https://www.darkreading.com/rss.xml",
+    "https://www.securityweek.com/rss",
     "https://blog.cloudflare.com/rss/", # Cloudflare Blog
     "https://googleprojectzero.blogspot.com/feeds/posts/default?alt=rss" # Google Project Zero
 ]
