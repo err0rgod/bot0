@@ -10,4 +10,8 @@ echo "Resetting current branch ($BRANCH) to upstream..."
 git reset --hard origin/$BRANCH
 
 chmod +x *.sh
+
+echo "Building updated Docker image..."
+docker build -t zeroday_bot .
+
 echo "Update complete."

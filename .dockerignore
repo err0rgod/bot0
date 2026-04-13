@@ -1,0 +1,10 @@
+venv/
+.git/
+.gitignore
+.gitattributes
+data/
+__pycache__/
+*.pyc
+.env
+maiL_output.txt
+output.txt

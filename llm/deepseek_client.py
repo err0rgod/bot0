@@ -19,7 +19,9 @@ class DeepSeekClient:
         # Initialize OpenAI compatible client
         self.client = OpenAI(
             api_key=self.api_key,
-            base_url="https://api.deepseek.com"
+            base_url="https://api.deepseek.com",
+            timeout=60.0,     # Global timeout to prevent hanging connections
+            max_retries=0     # Disable built-in retries so our custom loop controls it
         )
     
     def generate(self, messages: list, model: str = "deepseek-chat", temperature: float = 0.7, max_tokens: int = 1500) -> str:
@@ -28,19 +30,18 @@ class DeepSeekClient:
         """
         max_retries = 3
         base_delay = 2.0
-        timeout = 60.0  # 60 seconds request timeout
 
         for attempt in range(1, max_retries + 1):
             try:
                 logger.debug(f"Attempt {attempt}/{max_retries}: Sending request to DeepSeek API ({model}).")
                 start_time = time.time()
                 
+                # Using client.with_options if we need manual override, but global timeout is set.
                 response = self.client.chat.completions.create(
                     model=model,
                     messages=messages,
                     temperature=temperature,
-                    max_tokens=max_tokens,
-                    timeout=timeout
+                    max_tokens=max_tokens
                 )
                 
                 elapsed = time.time() - start_time

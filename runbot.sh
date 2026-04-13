@@ -1,28 +1,18 @@
 #!/bin/bash
 
-VENV_DIR="venv"
+IMAGE_NAME="zeroday_bot"
 
-# Check if the virtual environment directory exists
-if [ ! -d "$VENV_DIR" ]; then
-    echo "Virtual environment not found. Creating one..."
-    python -m venv $VENV_DIR
+echo "Checking if Docker image '$IMAGE_NAME' exists..."
+if ! docker image inspect "$IMAGE_NAME" > /dev/null 2>&1; then
+    echo "Docker image not found. Building it..."
+    docker build -t "$IMAGE_NAME" .
 fi
 
-# Activate the virtual environment
-echo "Activating virtual environment..."
-if [ -f "$VENV_DIR/Scripts/activate" ]; then
-    # Windows (Git Bash)
-    source $VENV_DIR/Scripts/activate
-elif [ -f "$VENV_DIR/bin/activate" ]; then
-    # Linux / macOS / WSL
-    source $VENV_DIR/bin/activate
-else
-    echo "Error: Could not find the activation script in $VENV_DIR."
-    exit 1
-fi
-
-echo "Installing/updating requirements..."
-pip install -r requirements.txt
-
-echo "Starting the bot..."
-python scraper/v2.py
+echo "Starting the bot in Docker..."
+docker run --rm \
+    --name "${IMAGE_NAME}_run" \
+    --env-file .env \
+    -v "$(pwd)/data:/app/data" \
+    --cpus="1.0" \
+    --memory="512m" \
+    "$IMAGE_NAME"
