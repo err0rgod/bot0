@@ -210,11 +210,48 @@ def send_newsletters():
             elif "http" not in human_text:
                 human_text += f"\n\nlink to full issue: {track_url}"
 
+            # Convert basic plain text features to HTML
+            import re
+            html_text = human_text.replace('\n', '<br>')
+            html_text = re.sub(r'(https?://[^\s<>]+)', r'<a href="\1" style="color: #3b82f6; text-decoration: none;">\1</a>', html_text)
+
+            attractive_html = f"""<!DOCTYPE html>
+<html lang="en">
+<body style="margin:0;padding:0;background-color:#0f172a;font-family:'Segoe UI',Helvetica,Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#0f172a;padding:40px 0;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background:#1e293b;border-radius:12px;overflow:hidden;border:1px solid #334155;">
+          <tr>
+            <td style="padding:24px 32px;border-bottom:1px solid #334155;">
+              <img src="{BASE_URL}/static/logo.png" alt="ZeroDay Weekly" style="height:32px;display:block;" />
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:32px;color:#cbd5e1;font-size:15px;line-height:1.7;">
+              {html_text}
+            </td>
+          </tr>
+          <tr>
+            <td style="background:#0f172a;padding:24px 32px;border-top:1px solid #1e293b;text-align:center;">
+              <p style="color:#64748b;font-size:12px;margin:0;">
+                ZeroDay Weekly &bull; Cybersecurity intelligence.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>"""
+
             params: resend.Emails.SendParams = {
                 "from": FROM_EMAIL,
                 "to": [email],
                 "subject": f"notes on {date_str} for you",
                 "text": human_text,
+                "html": attractive_html,
             }
             resend.Emails.send(params)
             
