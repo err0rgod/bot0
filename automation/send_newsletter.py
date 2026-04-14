@@ -135,7 +135,7 @@ def send_newsletters():
           <tr>
             <td style="background:#ffffff;padding:48px 40px 24px;text-align:center;border-bottom:1px solid #f1f5f9;">
               <div style="display:inline-block;background:#f3e8ff;border-radius:6px;padding:6px 14px;margin-bottom:16px;">
-                <span style="color:#7e22ce;font-size:12px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;">ZeroDay Weekly</span>
+                <span style="color:#7e22ce;font-size:12px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;">ZeroDay Daily</span>
               </div>
               <h1 style="color:#0f172a;font-size:26px;font-weight:700;margin:0;line-height:1.3;letter-spacing:-0.5px;">
                 Issue for {date_str}
@@ -145,7 +145,7 @@ def send_newsletters():
           <tr>
             <td style="padding:16px 40px 48px;">
               <p style="color:#64748b;font-size:16px;line-height:1.6;margin:0 0 32px;text-align:center;">
-                Here are the top cybersecurity stories for this week.
+                Here are the top cybersecurity stories for today.
               </p>
               <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 32px;">
                 {story_html}
@@ -153,7 +153,7 @@ def send_newsletters():
               <table cellpadding="0" cellspacing="0" style="margin:0 auto;">
                 <tr>
                   <td align="center" style="border-radius:8px;background:linear-gradient(135deg,#8b5cf6,#6366f1);box-shadow:0 4px 14px 0 rgba(139,92,246,0.39);">
-                    <a href="{BASE_URL}/weekly" style="display:inline-block;padding:14px 32px;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;border-radius:8px;letter-spacing:0.3px;">Explore Full Issue</a>
+                    <a href="{BASE_URL}/daily" style="display:inline-block;padding:14px 32px;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;border-radius:8px;letter-spacing:0.3px;">Explore Full Issue</a>
                   </td>
                 </tr>
               </table>
@@ -161,7 +161,7 @@ def send_newsletters():
           </tr>
           <tr>
             <td style="background:#f8fafc;padding:32px 40px;border-top:1px solid #e2e8f0;text-align:center;">
-              <p style="color:#94a3b8;font-size:13px;margin:0 0 12px;">ZeroDay Weekly &bull; Cybersecurity intelligence.</p>
+              <p style="color:#94a3b8;font-size:13px;margin:0 0 12px;">ZeroDay Daily &bull; Cybersecurity intelligence.</p>
               <p style="margin:0;"><a href="{{unsubscribe_url}}" style="color:#cbd5e1;font-size:12px;text-decoration:underline;">Unsubscribe</a></p>
             </td>
           </tr>
@@ -204,9 +204,9 @@ def send_newsletters():
                 continue
                 
             # Inject tracking
-            track_url = f"{BASE_URL}/weekly?track={track_token}"
-            if "{BASE_URL}/weekly" in human_text:
-                 human_text = human_text.replace(f"{BASE_URL}/weekly", track_url)
+            track_url = f"{BASE_URL}/daily?track={track_token}"
+            if "{BASE_URL}/daily" in human_text:
+                 human_text = human_text.replace(f"{BASE_URL}/daily", track_url)
             elif "http" not in human_text:
                 human_text += f"\n\nlink to full issue: {track_url}"
 
@@ -217,26 +217,19 @@ def send_newsletters():
 
             attractive_html = f"""<!DOCTYPE html>
 <html lang="en">
-<body style="margin:0;padding:0;background-color:#0f172a;font-family:'Segoe UI',Helvetica,Arial,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#0f172a;padding:40px 0;">
+<body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background-color:#ffffff;color:#111111;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#ffffff;padding:40px 0;">
     <tr>
       <td align="center">
-        <table width="600" cellpadding="0" cellspacing="0" style="background:#1e293b;border-radius:12px;overflow:hidden;border:1px solid #334155;">
+        <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;margin:0 auto;text-align:left;">
           <tr>
-            <td style="padding:24px 32px;border-bottom:1px solid #334155;">
-              <img src="{BASE_URL}/static/logo.png" alt="ZeroDay Weekly" style="height:32px;display:block;" />
-            </td>
-          </tr>
-          <tr>
-            <td style="padding:32px;color:#cbd5e1;font-size:15px;line-height:1.7;">
+            <td style="padding:20px;font-size:16px;line-height:1.7;color:#111111;">
               {html_text}
             </td>
           </tr>
           <tr>
-            <td style="background:#0f172a;padding:24px 32px;border-top:1px solid #1e293b;text-align:center;">
-              <p style="color:#64748b;font-size:12px;margin:0;">
-                ZeroDay Weekly &bull; Cybersecurity intelligence.
-              </p>
+            <td style="padding:20px;border-top:1px solid #eeeeee;font-size:13px;color:#666666;margin-top:30px;">
+              <p style="margin:0;">ZeroDay Daily &bull; Cybersecurity intelligence.</p>
             </td>
           </tr>
         </table>

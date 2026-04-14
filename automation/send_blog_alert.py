@@ -64,37 +64,24 @@ def _fetch_subscribers_from_blob() -> list[dict]:
 def _build_blog_email_html(blog_title: str, blog_url: str) -> str:
     return f"""<!DOCTYPE html>
 <html lang="en">
-<body style="margin:0;padding:0;background-color:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f8fafc;padding:40px 0;">
+<body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background-color:#ffffff;color:#111111;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#ffffff;padding:40px 0;">
     <tr>
       <td align="center">
-        <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e2e8f0;">
+        <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;margin:0 auto;text-align:left;">
           <tr>
-            <td style="padding:36px 40px;text-align:center;">
-              <div style="display:inline-block;background:#f3e8ff;border-radius:6px;padding:6px 14px;margin-bottom:16px;">
-                <span style="color:#7e22ce;font-size:12px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;">ZeroDay Weekly</span>
-              </div>
-              <h1 style="margin:0;color:#0f172a;font-size:24px;">New blog just dropped</h1>
-              <p style="margin:16px 0 0;color:#475569;font-size:16px;line-height:1.6;">
-                {blog_title}
+            <td style="padding:20px;font-size:16px;line-height:1.7;color:#111111;">
+              <h1 style="margin:0 0 16px 0;font-size:20px;font-weight:600;">New blog just dropped</h1>
+              <p style="margin:0 0 24px 0;">{blog_title}</p>
+              <a href="{blog_url}" style="display:inline-block;padding:12px 24px;background:#000000;color:#ffffff;text-decoration:none;font-weight:600;border-radius:4px;">Read the latest blog</a>
+              <p style="margin:24px 0 0;font-size:13px;color:#666666;word-break:break-all;">
+                Or open this link: <a href="{blog_url}" style="color:#000000;">{blog_url}</a>
               </p>
             </td>
           </tr>
           <tr>
-            <td style="padding:0 40px 40px;text-align:center;">
-              <a href="{blog_url}" style="display:inline-block;padding:12px 28px;background:#7c3aed;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;">
-                Read the latest blog
-              </a>
-              <p style="margin:14px 0 0;color:#64748b;font-size:13px;word-break:break-all;">
-                Or open this link: <a href="{blog_url}" style="color:#7c3aed;">{blog_url}</a>
-              </p>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding:18px 40px;background:#f8fafc;border-top:1px solid #e2e8f0;text-align:center;">
-              <p style="margin:0;color:#94a3b8;font-size:12px;">
-                Sent on {datetime.utcnow().strftime("%Y-%m-%d")} by ZeroDay Weekly
-              </p>
+            <td style="padding:20px;border-top:1px solid #eeeeee;font-size:13px;color:#666666;margin-top:30px;">
+              <p style="margin:0;">Sent on {datetime.utcnow().strftime("%Y-%m-%d")} by ZeroDay &bull; Cybersecurity intelligence.</p>
             </td>
           </tr>
         </table>

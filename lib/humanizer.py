@@ -78,6 +78,6 @@ def safety_filter(email_text):
 
 def _fallback_humanize(user_name, context):
     """Simple hardcoded fallback if LLM fails."""
-    return f"hey {user_name},\n\njust wanted to drop over some notes on {context} that I found recently. it seemed relevant to what we were looking at.\n\nhere is the link to the full list: {os.getenv('BASE_URL', 'http://localhost:8000')}/weekly\n\nlet me know if you catch anything interesting in there."
+    return f"hey {user_name},\n\njust wanted to drop over some notes on {context} that I found recently. it seemed relevant to what we were looking at.\n\nhere is the link to the full list: {os.getenv('BASE_URL', 'http://localhost:8000')}/daily\n\nlet me know if you catch anything interesting in there."
 
 import os
