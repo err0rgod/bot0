@@ -167,11 +167,15 @@ def scrape_cves(max_items=10):
 
 
 def main():
-
+    import time
+    overall_start = time.time()
+    
     logging.info("Starting Cyber News Scraper")
 
+    scrape_start = time.time()
     news = scrape_news()
     cves = scrape_cves()
+    scrape_time = time.time() - scrape_start
 
     output = {
         "news": news,
@@ -192,12 +196,19 @@ def main():
 
     logging.info(f"Raw data saved to {raw_output_file}")
     
+    pipeline_status = None
+    email_status = None
+    pipeline_time = 0
+    email_time = 0
+
     # Run the AI pipeline over the scraped data
     try:
         from pipeline import process_scraped_json
         logging.info("Starting AI Processing Pipeline...")
         processed_file = os.path.join(output_dir, "newsletter_prepared_data.json")
-        process_scraped_json(raw_output_file, processed_file)
+        pipe_start = time.time()
+        pipeline_status = process_scraped_json(raw_output_file, processed_file)
+        pipeline_time = time.time() - pipe_start
         logging.info(f"AI Pipeline completed successfully. Output saved to {processed_file}.")
         
         # Trigger email automation
@@ -208,16 +219,64 @@ def main():
             
             from automation.send_newsletter import send_newsletters
             logging.info("Dispatching email newsletters...")
-            send_newsletters()
+            email_start = time.time()
+            email_status = send_newsletters()
+            email_time = time.time() - email_start
             logging.info("Email dispatch process completed.")
         except Exception as e:
             logging.error(f"Failed to launch email automation: {e}")
             
     except ImportError as e:
         logging.error(f"Failed to load AI pipeline modules: {e}")
-        logging.error("Ensure 'pipeline.py', 'summarizer.py', and 'categorizer.py' exist and are imported correctly.")
     except Exception as e:
         logging.error(f"Error during AI pipeline processing: {e}")
+
+    total_time = time.time() - overall_start
+
+    # Dispatch Analytics Email
+    try:
+        import sys
+        if PROJECT_ROOT not in sys.path:
+            sys.path.insert(0, PROJECT_ROOT)
+        from lib.notifications import send_custom_email
+        
+        azure_ok = (pipeline_status and pipeline_status.get("upload") == "success")
+        
+        html_report = f"""
+        <html><body>
+        <h2>Bot Execution Analytics</h2>
+        <table border="1" cellpadding="8" style="border-collapse: collapse;">
+            <tr><th>Metric</th><th>Value</th></tr>
+            <tr><td>Total Execution Time</td><td>{total_time:.2f} s</td></tr>
+            <tr><td>Scraping Time</td><td>{scrape_time:.2f} s</td></tr>
+            <tr><td>AI Pipeline Time</td><td>{pipeline_time:.2f} s</td></tr>
+            <tr><td>Email Dispatch Time</td><td>{email_time:.2f} s</td></tr>
+            <tr><td>Stories Scraped</td><td>{len(news)}</td></tr>
+            <tr><td>CVEs Fetched</td><td>{len(cves)}</td></tr>
+            <tr><td>Azure Blob Status</td><td>{'OK' if azure_ok else 'FAILED'}</td></tr>
+        </table>
+        """
+        
+        if email_status:
+            html_report += f"""
+            <br>
+            <h3>Email Delivery Stats</h3>
+            <table border="1" cellpadding="8" style="border-collapse: collapse;">
+                <tr><th>Status</th><td>{email_status.get('email', 'unknown')}</td></tr>
+                <tr><th>Total Target Subscribers</th><td>{email_status.get('total_target', 0)}</td></tr>
+                <tr><th>Total Successfully Sent</th><td>{email_status.get('total_sent', 0)}</td></tr>
+                <tr><th>Fallback Local File Used</th><td>{email_status.get('fallback_used', 'no')}</td></tr>
+            </table>
+            """
+        else:
+            html_report += "<p><b>Email Delivery:</b> FAILED or DID NOT RUN.</p>"
+            
+        html_report += "</body></html>"
+        
+        logging.info("Sending Analytics Email to nirbhayerror@gmail.com")
+        send_custom_email(["nirbhayerror@gmail.com"], f"Analytics Report [{datetime.today().strftime('%Y-%m-%d')}]", html_report)
+    except Exception as e:
+        logging.error(f"Failed to send analytics report: {e}")
 
 if __name__ == "__main__":
     main()

@@ -90,7 +90,7 @@ def send_newsletters():
         logger.error("[ERROR][EMAIL] no issue found to send.")
         status["email"] = "failed (no content)"
         _print_summary(status, start_time)
-        return
+        return status
 
     # Check if fallback was used (clunky but heuristic based on cached result or lack of cloud result)
     # The actual fallback logic is inside lib.content, but we can check if it just happened
@@ -110,7 +110,7 @@ def send_newsletters():
         )
         status["email"] = "failed (sender domain not verified)"
         _print_summary(status, start_time)
-        return
+        return status
     logger.info(f"[EMAIL] sender check passed. {sender_reason}")
 
     # Generate the email story blocks
@@ -181,7 +181,7 @@ def send_newsletters():
         logger.warning("[WARN][EMAIL] no active subscribers found.")
         status["email"] = "skipped (no recipients)"
         _print_summary(status, start_time)
-        return
+        return status
 
     # 3. Send personalised humanized emails individually
     success_count = 0
@@ -264,6 +264,9 @@ def send_newsletters():
     status["email"] = "success" if success_count > 0 else "failed"
     
     _print_summary(status, start_time)
+    
+    status["time_taken"] = time.time() - start_time
+    return status
 
 def _print_summary(status, start_time):
     duration = round(time.time() - start_time, 2)

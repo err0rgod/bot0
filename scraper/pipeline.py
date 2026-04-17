@@ -102,9 +102,11 @@ def process_scraped_json(file_path: str, output_path: str = None):
     seen_titles = []
     
     # --- DEDUPLICATE AGAINST YESTERDAY'S NEWS ---
-    from datetime import timedelta
-    yesterday = (datetime.today() - timedelta(days=1)).strftime("%Y-%m-%d")
-    yesterday_file = os.path.join(DATA_DIR, "output", yesterday, "newsletter.json")
+    from datetime import datetime, timedelta
+    _PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    _DATA_DIR = os.getenv("DATA_DIR", os.path.join(_PROJECT_ROOT, "data"))
+    yesterday = (datetime.today() - timedelta(days=1)).strftime("%Y-%m-%d")    
+    yesterday_file = os.path.join(_DATA_DIR, "output", yesterday, "newsletter.json")
     yesterday_data = None
     
     if os.path.exists(yesterday_file):
