@@ -1,7 +1,7 @@
 import os
 import sys
 from dotenv import load_dotenv
-from utils import rate_limit_and_retry
+from utils import async_rate_limit_and_retry
 
 # Ensure we can import from llm module
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -11,8 +11,8 @@ from llm.client import LLMClient
 _env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env")
 load_dotenv(_env_path, override=True)
 
-@rate_limit_and_retry(max_retries=3, base_delay=2.0)
-def categorize_article(title: str, summary: str) -> str:
+@async_rate_limit_and_retry(max_retries=3, base_delay=2.0)
+async def categorize_article(title: str, summary: str) -> str:
     """
     Categorizes a cybersecurity article based on its title and summary.
     Always returns exactly one of the predefined category names.
@@ -42,7 +42,7 @@ def categorize_article(title: str, summary: str) -> str:
     Return ONLY the category name. Do not output anything else.
     """
     
-    raw_category = client.generate(
+    raw_category = await client.generate(
         messages=[
             {"role": "system", "content": "You are a strict categorization system. Output exactly one category name."},
             {"role": "user", "content": prompt}

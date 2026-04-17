@@ -204,10 +204,11 @@ def main():
     # Run the AI pipeline over the scraped data
     try:
         from pipeline import process_scraped_json
+        import asyncio
         logging.info("Starting AI Processing Pipeline...")
         processed_file = os.path.join(output_dir, "newsletter_prepared_data.json")
         pipe_start = time.time()
-        pipeline_status = process_scraped_json(raw_output_file, processed_file)
+        pipeline_status = asyncio.run(process_scraped_json(raw_output_file, processed_file))
         pipeline_time = time.time() - pipe_start
         logging.info(f"AI Pipeline completed successfully. Output saved to {processed_file}.")
         

@@ -189,6 +189,13 @@ def send_newsletters():
     for sub in subscribers:
         try:
             email = sub.get("email")
+            
+            # Idempotency Check: Skip if already sent today
+            existing_log = db.query(EmailLog).filter_by(email=email, issue_date=date_str, status="sent").first()
+            if existing_log:
+                logger.info(f"[EMAIL] idempotency check passed: skipping {email}, already sent for issue {date_str}.")
+                continue
+                
             name = email.split('@')[0] if email else "there"
             
             # Use unique track token

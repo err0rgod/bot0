@@ -74,10 +74,12 @@ def generate_newsletter(json_data: dict, output_file: str = None):
     logger.info(f"Generated human readable newsletter text at {output_file}")
 
 
-def process_scraped_json(file_path: str, output_path: str = None):
+import asyncio
+
+async def process_scraped_json(file_path: str, output_path: str = None):
     """
     Reads JSON from v2.py, applies filtering, deduplication, ranking, and AI summarization rules.
-    Outputs the final segregated structure into output/newsletter.json.
+    Outputs the final segregated structure into output/newsletter.json. Operations are processed concurrently.
     """
     if not os.path.exists(file_path):
         logger.error(f"[ERROR] file {file_path} not found.")
@@ -147,9 +149,40 @@ def process_scraped_json(file_path: str, output_path: str = None):
     processed_cves = []
     
     # --- PROCESS NEWS ---
-    logger.info("Processing News Articles...")
+    logger.info("Scheduling News Articles for Async Processing...")
+    news_tasks = []
+    
+    async def process_single_news(item):
+        title = item.get("title", "")
+        content = item.get("content", "")
+        url = item.get("link", "")
+        score = rank_article(content)
+        
+        try:
+            category = await categorize_article(title, content[:1500])
+            if category == "CVE":
+                summary = await summarize_article(title, content)
+                import re as _re
+                extracted_ids = list(dict.fromkeys(_re.findall(r'CVE-\d{4}-\d{4,7}', content, _re.IGNORECASE)))
+                return {"type": "cve", "data": {
+                    "title": title, "summary": summary, 
+                    "cve_ids": [c.upper() for c in extracted_ids], "score": score
+                }}
+                
+            summaries = await generate_two_level_summary(title, content)
+            return {"type": "news", "data": {
+                "title": title, "category": category,
+                "short_summary": summaries["short_summary"],
+                "deep_summary": summaries["deep_summary"],
+                "score": score, "source": "RSS Scraping", "url": url
+            }}
+        except Exception as e:
+            logger.error(f"[ERROR] AI processing failed for article '{title}': {e}")
+            return None
+
+    # Filter items before scheduling to prevent duplicates within the batch
     for item in data.get("news", []):
-        if len(processed_news) >= 15:
+        if len(news_tasks) >= 15:
             logger.info("Reached maximum of 15 processed articles. Skipping the rest.")
             break
             
@@ -157,97 +190,61 @@ def process_scraped_json(file_path: str, output_path: str = None):
         content = item.get("content", "")
         url = item.get("link", "")
         
-        # Filter 1: Length check
-        if len(content) < 200:
-            logger.info(f"Skipping '{title[:30]}...': content too short ({len(content)} chars)")
-            continue
-            
-        # Filter 2: Exact URL Duplicate (just in case scraper misses it)
-        if url and url in seen_urls:
-            logger.info(f"Skipping '{title[:30]}...': duplicate URL")
-            continue
-            
-        # Filter 3: AI Deduplication (Fuzzy title match)
+        if len(content) < 200: continue
+        if url and url in seen_urls: continue
+        
         is_dup = False
         for seen_t in seen_titles:
             if is_duplicate_title(title, seen_t, threshold=0.8):
-                logger.debug(f"[FILTER] skipping '{title[:30]}...': fuzzy duplicate")
                 is_dup = True
                 break
-        if is_dup:
-            continue
-            
-        # Item passed filters!
+        if is_dup: continue
+        
+        # Add to seen to prevent internal duplicates in the same batch
         seen_urls.add(url)
         seen_titles.append(title)
         
-        # Compute keyword ranking
-        score = rank_article(content)
-        
-        logger.info(f"Processing article: {title}")
-        logger.info(f" -> Compressed length: ~{min(len(content), 2000)} (raw: {len(content)})")
-        logger.info(f" -> Ranking score: {score}")
-        
-        try:
-            category = categorize_article(title, content[:1500]) # Quick category from snippet
-            logger.info(f" -> Category detected: {category}")
-            
-            # Segregation rule: If CVE category, process differently later, or store separately
-            if category == "CVE":
-                logger.info(" -> Routing to CVE list instead of main stories.")
-                summary = summarize_article(title, content)
+        news_tasks.append(process_single_news(item))
 
-                # Extract real CVE IDs (e.g. CVE-2026-21262) from content
-                import re as _re
-                extracted_ids = list(dict.fromkeys(
-                    _re.findall(r'CVE-\d{4}-\d{4,7}', content, _re.IGNORECASE)
-                ))
-                logger.info(f" -> Extracted CVE IDs: {extracted_ids}")
-
-                processed_cves.append({
-                    "title": title,
-                    "summary": summary,
-                    "cve_ids": [c.upper() for c in extracted_ids],  # list of real IDs
-                    "score": score
-                })
-                continue
-                
-            # If standard news, generate two-level summary
-            summaries = generate_two_level_summary(title, content)
-            
-            processed_news.append({
-                "title": title,
-                "category": category,
-                "short_summary": summaries["short_summary"],
-                "deep_summary": summaries["deep_summary"],
-                "score": score,
-                "source": "RSS Scraping",
-                "url": url
-            })
-            logger.debug(f"[SCRAPER] processed story: {title}")
-            
-        except Exception as e:
-            logger.error(f"[ERROR] AI processing failed for article '{title}': {e}")
+    # Await all valid news items
+    if news_tasks:
+        results = await asyncio.gather(*news_tasks)
+        for res in results:
+            if not res: continue
+            if res["type"] == "cve":
+                processed_cves.append(res["data"])
+            elif res["type"] == "news":
+                processed_news.append(res["data"])
 
 
     # --- PROCESS CVES ---
     # Scraper explicit CVEs
-    logger.info("Processing Explicit API CVEs...")
+    logger.info("Scheduling Explicit API CVEs for Async Processing...")
+    cve_tasks = []
+    
+    async def process_single_cve(cve_id, desc):
+        title = f"Vulnerability {cve_id}"
+        try:
+            summary = await summarize_article(title, desc)
+            return {
+                "title": title,
+                "summary": summary,
+                "cve_ids": [cve_id]
+            }
+        except Exception as e:
+            logger.error(f"Error processing CVE {cve_id}: {e}")
+            return None
+
     for cve in data.get("cves", []):
         cve_id = cve.get("cve_id", "")
         desc = cve.get("description", "")
         if cve_id and desc:
-            logger.info(f"Processing CVE: {cve_id}")
-            title = f"Vulnerability {cve_id}"
-            try:
-                summary = summarize_article(title, desc)
-                processed_cves.append({
-                    "title": title,
-                    "summary": summary,
-                    "cve_ids": [cve_id]
-                })
-            except Exception as e:
-                logger.error(f"Error processing CVE {cve_id}: {e}")
+            cve_tasks.append(process_single_cve(cve_id, desc))
+            
+    if cve_tasks:
+        cve_results = await asyncio.gather(*cve_tasks)
+        for res in cve_results:
+            if res: processed_cves.append(res)
 
     # --- RANK & SELECT TOP STORIES ---
     # Sort news descending by score

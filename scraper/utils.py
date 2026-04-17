@@ -1,5 +1,6 @@
 import time
 import logging
+import asyncio
 from functools import wraps
 from difflib import SequenceMatcher
 
@@ -46,6 +47,31 @@ def rate_limit_and_retry(max_retries=3, base_delay=2.0):
                     sleep_time = base_delay * (2 ** (retries - 1))
                     logger.warning(f"[{func.__name__}] Error occurred: {e}. Retrying in {sleep_time}s... ({retries}/{max_retries})")
                     time.sleep(sleep_time)
+            return None
+        return wrapper
+    return decorator
+
+def async_rate_limit_and_retry(max_retries=3, base_delay=2.0):
+    """
+    Async Decorator to enforce a minimum delay between API calls and retry on failures 
+    with exponential backoff.
+    """
+    def decorator(func):
+        @wraps(func)
+        async def wrapper(*args, **kwargs):
+            retries = 0
+            while retries <= max_retries:
+                try:
+                    await asyncio.sleep(base_delay)
+                    return await func(*args, **kwargs)
+                except Exception as e:
+                    retries += 1
+                    if retries > max_retries:
+                        logger.error(f"[{func.__name__}] Failed after {max_retries} retries: {e}")
+                        raise e
+                    sleep_time = base_delay * (2 ** (retries - 1))
+                    logger.warning(f"[{func.__name__}] Error occurred: {e}. Retrying in {sleep_time}s... ({retries}/{max_retries})")
+                    await asyncio.sleep(sleep_time)
             return None
         return wrapper
     return decorator

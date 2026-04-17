@@ -1,7 +1,8 @@
 import os
 import time
 import logging
-from openai import OpenAI
+import asyncio
+from openai import AsyncOpenAI
 
 # Configure basic logging for the LLM module
 logging.basicConfig(
@@ -16,15 +17,15 @@ class DeepSeekClient:
         if not self.api_key:
             raise ValueError("DEEPSEEK_API_KEY is not set in the environment or .env file.")
         
-        # Initialize OpenAI compatible client
-        self.client = OpenAI(
+        # Initialize Async OpenAI compatible client
+        self.client = AsyncOpenAI(
             api_key=self.api_key,
             base_url="https://api.deepseek.com",
             timeout=60.0,     # Global timeout to prevent hanging connections
             max_retries=0     # Disable built-in retries so our custom loop controls it
         )
     
-    def generate(self, messages: list, model: str = "deepseek-chat", temperature: float = 0.7, max_tokens: int = 1500) -> str:
+    async def generate(self, messages: list, model: str = "deepseek-chat", temperature: float = 0.7, max_tokens: int = 1500) -> str:
         """
         Generates text using the DeepSeek API with retry and timeout logic.
         """
@@ -37,7 +38,7 @@ class DeepSeekClient:
                 start_time = time.time()
                 
                 # Using client.with_options if we need manual override, but global timeout is set.
-                response = self.client.chat.completions.create(
+                response = await self.client.chat.completions.create(
                     model=model,
                     messages=messages,
                     temperature=temperature,
@@ -57,4 +58,4 @@ class DeepSeekClient:
                     raise
                 
                 # Exponential backoff
-                time.sleep(base_delay ** attempt)
+                await asyncio.sleep(base_delay ** attempt)

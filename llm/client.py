@@ -24,14 +24,14 @@ class LLMClient:
         else:
             raise ValueError(f"Unknown LLM provider: {provider}")
 
-    def generate(self, messages: list, model: Optional[str] = None, temperature: float = 0.7, max_tokens: int = 1500) -> str:
+    async def generate(self, messages: list, model: Optional[str] = None, temperature: float = 0.7, max_tokens: int = 1500) -> str:
         """
         Routes the text generation request to the selected provider.
         """
         if self.provider == "deepseek":
             # Use default model if none specified
             use_model = model if model else "deepseek-chat"
-            return self.client.generate(
+            return await self.client.generate(
                 messages=messages, 
                 model=use_model, 
                 temperature=temperature,
