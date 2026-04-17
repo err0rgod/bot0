@@ -115,7 +115,7 @@ def send_newsletters():
 
     # Generate the email story blocks
     story_html = ""
-    for idx, story in enumerate(top_stories[:3], 1):
+    for idx, story in enumerate(top_stories, 1):
         story_html += f"""
         <tr>
             <td style="padding: 24px 0; border-bottom: 1px solid #f1f5f9;">

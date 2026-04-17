@@ -252,15 +252,15 @@ def process_scraped_json(file_path: str, output_path: str = None):
     # --- RANK & SELECT TOP STORIES ---
     # Sort news descending by score
     processed_news.sort(key=lambda x: x["score"], reverse=True)
-    top_5_stories = processed_news[:5]
+    top_stories = processed_news[:10]
     
-    logger.info(f"Selected {len(top_5_stories)} Top stories for the final newsletter.")
+    logger.info(f"Selected {len(top_stories)} Top stories for the final newsletter.")
 
     # --- BUILD FINAL JSON ---
     from datetime import datetime
     final_output = {
         "date": datetime.today().strftime("%Y-%m-%d"),
-        "top_stories": top_5_stories,
+        "top_stories": top_stories,
         "cves": processed_cves
     }
 
@@ -268,7 +268,7 @@ def process_scraped_json(file_path: str, output_path: str = None):
     with open(output_path, "w", encoding="utf-8") as out:
         json.dump(final_output, out, indent=4)
         
-    logger.info(f"[FILTER] selected {len(top_5_stories)} high-priority items.")
+    logger.info(f"[FILTER] selected {len(top_stories)} high-priority items.")
     logger.info(f"[STORAGE] saved local issue data ({(os.path.getsize(output_path)//1024)}KB)")
 
     # Cloud Storage Upload (Azure Blob Storage)
@@ -312,5 +312,5 @@ def process_scraped_json(file_path: str, output_path: str = None):
         "scrape": "success",
         "upload": upload_status,
         "issue_date": final_output['date'],
-        "stories": len(top_5_stories)
+        "stories": len(top_stories)
     }
