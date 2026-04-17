@@ -71,13 +71,24 @@ def rank_article(content: str) -> int:
     
     # High priority keywords requested
     keywords = [
+        # Cybersecurity
         "zero-day",
         "critical vulnerability",
         "data breach",
         "ransomware",
         "nation state",
         "mass exploitation",
-        "supply chain attack"
+        "supply chain attack",
+        # AI & Tech
+        "artificial intelligence",
+        "machine learning",
+        "deep learning",
+        "large language models",
+        "generative ai",
+        "computer science",
+        "software engineering",
+        "algorithms",
+        "innovation"
     ]
     
     score = 0

@@ -101,6 +101,46 @@ def process_scraped_json(file_path: str, output_path: str = None):
     seen_urls = set()
     seen_titles = []
     
+    # --- DEDUPLICATE AGAINST YESTERDAY'S NEWS ---
+    from datetime import timedelta
+    yesterday = (datetime.today() - timedelta(days=1)).strftime("%Y-%m-%d")
+    yesterday_file = os.path.join(DATA_DIR, "output", yesterday, "newsletter.json")
+    yesterday_data = None
+    
+    if os.path.exists(yesterday_file):
+        try:
+            with open(yesterday_file, "r", encoding="utf-8") as yf:
+                yesterday_data = json.load(yf)
+        except Exception as e:
+            logger.error(f"Failed to load yesterday's local data: {e}")
+    else:
+        azure_conn_str = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
+        container_name = os.getenv("AZURE_CONTAINER_NAME", "news")
+        if azure_conn_str:
+            try:
+                from azure.storage.blob import BlobServiceClient
+                blob_service = BlobServiceClient.from_connection_string(azure_conn_str)
+                container_client = blob_service.get_container_client(container_name)
+                blob_name = f"issue_{yesterday}.json"
+                blob_client = container_client.get_blob_client(blob_name)
+                if blob_client.exists():
+                    logger.info(f"Downloading yesterday's issue from Azure: {blob_name}")
+                    download_stream = blob_client.download_blob()
+                    yesterday_data = json.loads(download_stream.readall())
+            except Exception as e:
+                logger.error(f"Failed to download yesterday's news from Azure: {e}")
+
+    if yesterday_data:
+        for item in yesterday_data.get("top_stories", []):
+            if item.get("url"):
+                seen_urls.add(item["url"])
+            if item.get("title"):
+                seen_titles.append(item["title"])
+        for cve in yesterday_data.get("cves", []):
+            if cve.get("title"):
+                seen_titles.append(cve["title"])
+        logger.info(f"Loaded {len(yesterday_data.get('top_stories', []))} stories and {len(yesterday_data.get('cves', []))} CVEs from yesterday for deduplication.")
+    
     processed_news = []
     processed_cves = []
     

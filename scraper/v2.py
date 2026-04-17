@@ -19,7 +19,10 @@ NEWS_FEEDS = [
     "https://www.darkreading.com/rss.xml",
     "https://www.securityweek.com/rss",
     "https://blog.cloudflare.com/rss/", # Cloudflare Blog
-    "https://googleprojectzero.blogspot.com/feeds/posts/default?alt=rss" # Google Project Zero
+    "https://googleprojectzero.blogspot.com/feeds/posts/default?alt=rss", # Google Project Zero
+    "https://techcrunch.com/category/artificial-intelligence/feed/", # TechCrunch AI
+    "https://www.theverge.com/rss/index.xml", # The Verge Tech
+    "https://feeds.arstechnica.com/arstechnica/technology-lab" # Ars Technica IT/Tech
 ]
 
 # NVD api for cves

@@ -24,12 +24,15 @@ def categorize_article(title: str, summary: str) -> str:
         "Data Breach",
         "Zero-Day",
         "Security Tools",
-        "General Security"
+        "General Security",
+        "Artificial Intelligence",
+        "Computer Science",
+        "Tech News"
     ]
     
     client = LLMClient(provider="deepseek")
     prompt = f"""
-    Categorize the following cybersecurity article based on its title and summary.
+    Categorize the following technology/cybersecurity article based on its title and summary.
     You must choose EXACTLY ONE category from the list below:
     {', '.join(categories)}
     
