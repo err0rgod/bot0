@@ -8,7 +8,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from llm.client import LLMClient
 
 import asyncio
-from utils import compress_content, async_rate_limit_and_retry
+from scraper.utils import compress_content, async_rate_limit_and_retry
 
 # Load environment variables from the root directory's .env
 _env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env")

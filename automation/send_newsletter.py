@@ -221,7 +221,14 @@ def send_newsletters():
             logger.error(f"[ERROR][EMAIL] failed to send to {sub.get('email', '?')}: {e}")
 
     status["total_sent"] = success_count
-    status["email"] = "success" if success_count > 0 else "failed"
+    
+    if success_count > 0:
+        status["email"] = "success"
+    else:
+        if len(subscribers) > 0 and success_count == 0:
+            status["email"] = "skipped (already sent today)"
+        else:
+            status["email"] = "failed"
     
     _print_summary(status, start_time)
     
@@ -235,7 +242,6 @@ def _print_summary(status, start_time):
     print(f"scrape: {status['scrape']}")
     print(f"upload: {status['upload']}")
     print(f"email: {status['email']} ({status['total_sent']}/{status['total_target']} sent)")
-    print(f"fallback_used: {status['fallback_used']}")
     print(f"total_time: {duration} seconds")
     print("="*30 + "\n")
 

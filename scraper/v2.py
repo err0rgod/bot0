@@ -116,9 +116,7 @@ def scrape_cves(max_items=10):
     logging.info("Fetching latest CVEs")
 
     params = {
-        "resultsPerPage": max_items,
-        "sortBy": "published",
-        "sortOrder": "desc"
+        "resultsPerPage": max_items
     }
 
     # retry mechanism
@@ -206,7 +204,7 @@ def main():
 
     # Run the AI pipeline over the scraped data
     try:
-        from pipeline import process_scraped_data
+        from scraper.pipeline import process_scraped_data
         import asyncio
         logging.info("Starting AI Processing Pipeline...")
         pipe_start = time.time()
@@ -243,11 +241,14 @@ def main():
             sys.path.insert(0, PROJECT_ROOT)
         from lib.notifications import send_custom_email
         
-        azure_ok = (pipeline_status and pipeline_status.get("upload") == "success")
+        s3_ok = (pipeline_status and pipeline_status.get("upload") == "success")
+        
+        # Placeholder for website health check
+        website_status = "Pending Integration" 
         
         html_report = f"""
         <html><body>
-        <h2>Bot Execution Analytics</h2>
+        <h2>AWS Bot Execution Analytics</h2>
         <table border="1" cellpadding="8" style="border-collapse: collapse;">
             <tr><th>Metric</th><th>Value</th></tr>
             <tr><td>Total Execution Time</td><td>{total_time:.2f} s</td></tr>
@@ -256,19 +257,19 @@ def main():
             <tr><td>Email Dispatch Time</td><td>{email_time:.2f} s</td></tr>
             <tr><td>Stories Scraped</td><td>{len(news)}</td></tr>
             <tr><td>CVEs Fetched</td><td>{len(cves)}</td></tr>
-            <tr><td>Azure Blob Status</td><td>{'OK' if azure_ok else 'FAILED'}</td></tr>
+            <tr><td>AWS S3 Status</td><td>{'OK' if s3_ok else 'FAILED'}</td></tr>
+            <tr><td>Website Status</td><td>{website_status}</td></tr>
         </table>
         """
         
         if email_status:
             html_report += f"""
             <br>
-            <h3>Email Delivery Stats</h3>
+            <h3>Email Serverless Stats</h3>
             <table border="1" cellpadding="8" style="border-collapse: collapse;">
                 <tr><th>Status</th><td>{email_status.get('email', 'unknown')}</td></tr>
                 <tr><th>Total Target Subscribers</th><td>{email_status.get('total_target', 0)}</td></tr>
                 <tr><th>Total Successfully Sent</th><td>{email_status.get('total_sent', 0)}</td></tr>
-                <tr><th>Fallback Local File Used</th><td>{email_status.get('fallback_used', 'no')}</td></tr>
             </table>
             """
         else:

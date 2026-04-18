@@ -7,9 +7,9 @@ from dotenv import load_dotenv
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 load_dotenv(os.path.join(project_root, ".env"), override=True)
 
-from summarizer import summarize_article, generate_two_level_summary
-from categorizer import categorize_article
-from utils import is_duplicate_title, rank_article
+from scraper.summarizer import summarize_article, generate_two_level_summary
+from scraper.categorizer import categorize_article
+from scraper.utils import is_duplicate_title, rank_article
 
 # Setup pipeline logging with structured format
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")

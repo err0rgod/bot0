@@ -1,7 +1,7 @@
 import os
 import sys
 from dotenv import load_dotenv
-from utils import async_rate_limit_and_retry
+from scraper.utils import async_rate_limit_and_retry
 
 # Ensure we can import from llm module
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
