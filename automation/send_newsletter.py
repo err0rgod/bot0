@@ -15,59 +15,17 @@ import resend
 import secrets
 from lib.content import get_latest_issue
 from lib.notifications import FROM_EMAIL, BASE_URL, validate_sender_domain
-from lib.db import init_db, SessionLocal, EmailLog
+from lib.db import get_db_client
 from lib.humanizer import humanize_email, safety_filter
 
 # Configure logging
 logger = logging.getLogger(__name__)
 
 resend.api_key = os.getenv("RESEND_API_KEY", "")
-init_db() # Ensure tables exist
+# Assume DB is handled externally or ready
 
 
-def _fetch_subscribers_from_blob() -> list:
-    """Fetch the latest subscriber list from Azure Blob Storage (subscribers.json)."""
-    conn_str = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
-    container_name = os.getenv("AZURE_CONTAINER_NAME", "news")
 
-    if not conn_str:
-        print("Warning: No Azure connection string found. Falling back to local subscribers.json")
-        return _fetch_subscribers_from_local()
-
-    try:
-        from azure.storage.blob import BlobServiceClient
-        blob_service = BlobServiceClient.from_connection_string(conn_str)
-        container_client = blob_service.get_container_client(container_name)
-        blob_client = container_client.get_blob_client("subscribers.json")
-
-        data = json.loads(blob_client.download_blob().readall().decode("utf-8-sig"))
-        # Only send to active subscribers
-        active = [s for s in data if s.get("is_active", True)]
-        logger.info(f"[STORAGE] fetched {len(active)} active subscribers from cloud.")
-        return active
-    except Exception as e:
-        logger.warning(f"[WARN][FALLBACK] cloud subscriber fetch failed: {e}. trying local.")
-        return _fetch_subscribers_from_local()
-
-
-def _fetch_subscribers_from_local() -> list:
-    """Fallback: read subscribers from local subscribers.json file."""
-    PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    DATA_DIR = os.getenv("DATA_DIR", os.path.join(PROJECT_ROOT, "data"))
-    local_path = os.path.join(DATA_DIR, "subscribers.json")
-
-    if not os.path.exists(local_path):
-        print("No local subscribers.json found.")
-        return []
-
-    try:
-        with open(local_path, "r", encoding="utf-8-sig") as f:
-            data = json.load(f)
-        logger.info(f"[WARN][FALLBACK] using local subscribers.json ({len(data)} records)")
-        return data
-    except Exception as e:
-        logger.error(f"[ERROR] failed to read local subscribers.json: {e}")
-        return []
 
 
 def send_newsletters():
@@ -174,7 +132,8 @@ def send_newsletters():
 
     # 2. Fetch subscribers
     sub_start = time.time()
-    subscribers = _fetch_subscribers_from_blob()
+    db = get_db_client()
+    subscribers = db.get_active_subscribers()
     status["total_target"] = len(subscribers)
 
     if not subscribers:
@@ -185,14 +144,12 @@ def send_newsletters():
 
     # 3. Send personalised humanized emails individually
     success_count = 0
-    db = SessionLocal()
     for sub in subscribers:
         try:
             email = sub.get("email")
             
             # Idempotency Check: Skip if already sent today
-            existing_log = db.query(EmailLog).filter_by(email=email, issue_date=date_str, status="sent").first()
-            if existing_log:
+            if db.check_email_already_sent(email, date_str):
                 logger.info(f"[EMAIL] idempotency check passed: skipping {email}, already sent for issue {date_str}.")
                 continue
                 
@@ -255,18 +212,14 @@ def send_newsletters():
             }
             resend.Emails.send(params)
             
-            # Log event
-            log_entry = EmailLog(email=email, issue_date=date_str, track_token=track_token, status="sent")
-            db.add(log_entry)
-            db.commit()
+            # Log event to DynamoDB
+            db.log_email_sent(email, date_str, track_token, "sent")
 
             logger.debug(f"[EMAIL] successfully sent to {email}")
             success_count += 1
         except Exception as e:
             logger.error(f"[ERROR][EMAIL] failed to send to {sub.get('email', '?')}: {e}")
-            db.rollback()
 
-    db.close()
     status["total_sent"] = success_count
     status["email"] = "success" if success_count > 0 else "failed"
     
@@ -285,6 +238,14 @@ def _print_summary(status, start_time):
     print(f"fallback_used: {status['fallback_used']}")
     print(f"total_time: {duration} seconds")
     print("="*30 + "\n")
+
+def lambda_handler(event, context):
+    """
+    AWS Lambda Entry Point for Dispatcher.
+    Triggered manually or via S3 Upload EventBridge rule.
+    """
+    logger.info("Lambda invocation Triggered - starting Email Dispatch cycle.")
+    return send_newsletters()
 
 if __name__ == "__main__":
     send_newsletters()

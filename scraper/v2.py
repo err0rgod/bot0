@@ -186,15 +186,18 @@ def main():
     from datetime import datetime
 
     PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    DATA_DIR = os.getenv("DATA_DIR", os.path.join(PROJECT_ROOT, "data"))
-    output_dir = os.path.join(DATA_DIR, "output", datetime.today().strftime("%Y-%m-%d"))
-    os.makedirs(output_dir, exist_ok=True)
-
-    raw_output_file = os.path.join(output_dir, "scraped_data.json")
-    with open(raw_output_file, "w", encoding="utf-8") as f:
-        json.dump(output, f, indent=4)
-
-    logging.info(f"Raw data saved to {raw_output_file}")
+    
+    # In AWS Lambda, we write pure raw dicts to S3 immediately
+    s3_bucket = os.getenv("S3_BUCKET_NAME")
+    if s3_bucket:
+        try:
+            import boto3
+            s3_client = boto3.client('s3', region_name=os.getenv("AWS_REGION", "us-east-1"))
+            raw_blob_name = f"raw_data_{datetime.today().strftime('%Y-%m-%d')}.json"
+            s3_client.put_object(Bucket=s3_bucket, Key=raw_blob_name, Body=json.dumps(output))
+            logging.info(f"Raw data saved to S3 Key: {raw_blob_name}")
+        except Exception as e:
+            logging.warning(f"Failed to upload raw data to S3: {e}")
     
     pipeline_status = None
     email_status = None
@@ -203,14 +206,13 @@ def main():
 
     # Run the AI pipeline over the scraped data
     try:
-        from pipeline import process_scraped_json
+        from pipeline import process_scraped_data
         import asyncio
         logging.info("Starting AI Processing Pipeline...")
-        processed_file = os.path.join(output_dir, "newsletter_prepared_data.json")
         pipe_start = time.time()
-        pipeline_status = asyncio.run(process_scraped_json(raw_output_file, processed_file))
+        pipeline_status = asyncio.run(process_scraped_data(output))
         pipeline_time = time.time() - pipe_start
-        logging.info(f"AI Pipeline completed successfully. Output saved to {processed_file}.")
+        logging.info("AI Pipeline completed successfully. Output saved to S3.")
         
         # Trigger email automation
         try:
@@ -278,6 +280,19 @@ def main():
         send_custom_email(["nirbhayerror@gmail.com"], f"Analytics Report [{datetime.today().strftime('%Y-%m-%d')}]", html_report)
     except Exception as e:
         logging.error(f"Failed to send analytics report: {e}")
+
+    return {
+        "statusCode": 200,
+        "body": "Daily intelligence cycle completed successfully."
+    }
+
+def lambda_handler(event, context):
+    """
+    AWS Lambda Entry Point.
+    Triggered by EventBridge (e.g. 8:00 AM Cron).
+    """
+    print("Lambda invocation Triggered - starting intelligence cycle.")
+    return main()
 
 if __name__ == "__main__":
     main()

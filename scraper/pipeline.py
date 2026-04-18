@@ -31,108 +31,66 @@ def _retry_storage(func, *args, **kwargs):
             time.sleep(delay)
     return False
 
-def generate_newsletter(json_data: dict, output_file: str = None):
+def generate_newsletter(json_data: dict) -> str:
     """
     Generates a human-readable text newsletter from the structured JSON data.
     """
-    if not output_file:
-        from datetime import datetime
-        PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        DATA_DIR = os.getenv("DATA_DIR", os.path.join(PROJECT_ROOT, "data"))
-        output_file = os.path.join(DATA_DIR, "output", datetime.today().strftime("%Y-%m-%d"), "newsletter.txt")
-        
-    # Ensure output directory exists before writing
-    out_dir = os.path.dirname(output_file)
-    if out_dir:
-        os.makedirs(out_dir, exist_ok=True)
+    output = []
+    output.append("Cybersecurity Weekly Brief\n")
+    output.append("=" * 50 + "\n\n")
     
-    with open(output_file, "w", encoding="utf-8") as f:
-        f.write("Cybersecurity Weekly Brief\n")
-        f.write("=" * 50 + "\n\n")
+    output.append("Top 5 Security Stories\n")
+    output.append("-" * 50 + "\n\n")
+    
+    # Write top stories
+    for i, story in enumerate(json_data.get("top_stories", []), 1):
+        output.append(f"{i}. {story['title']}\n\n")
+        output.append(f"{story['short_summary']}\n\n")
+        output.append(f"{story['deep_summary']}\n")
+        output.append("\n" + "-" * 30 + "\n\n")
         
-        f.write("Top 5 Security Stories\n")
-        f.write("-" * 50 + "\n\n")
-        
-        # Write top stories
-        for i, story in enumerate(json_data.get("top_stories", []), 1):
-            f.write(f"{i}. {story['title']}\n\n")
-            f.write(f"{story['short_summary']}\n\n")
-            f.write(f"{story['deep_summary']}\n")
-            f.write("\n" + "-" * 30 + "\n\n")
-            
-        # Optional: Add CVE section
-        cves = json_data.get("cves", [])
-        if cves:
-            f.write("Important Vulnerabilities (CVEs)\n")
-            f.write("-" * 50 + "\n\n")
-            for cve in cves:
-                f.write(f"- {cve['title']}: {cve['summary']}\n")
-                if cve.get('cve_ids'):
-                    ids_str = ', '.join(cve['cve_ids'])
-                    f.write(f"  Vulnerabilities: {ids_str}\n")
+    # Optional: Add CVE section
+    cves = json_data.get("cves", [])
+    if cves:
+        output.append("Important Vulnerabilities (CVEs)\n")
+        output.append("-" * 50 + "\n\n")
+        for cve in cves:
+            output.append(f"- {cve['title']}: {cve['summary']}\n")
+            if cve.get('cve_ids'):
+                ids_str = ', '.join(cve['cve_ids'])
+                output.append(f"  Vulnerabilities: {ids_str}\n")
 
-    logger.info(f"Generated human readable newsletter text at {output_file}")
+    return "".join(output)
 
 
 import asyncio
+import boto3
 
-async def process_scraped_json(file_path: str, output_path: str = None):
+async def process_scraped_data(data: dict) -> dict:
     """
-    Reads JSON from v2.py, applies filtering, deduplication, ranking, and AI summarization rules.
-    Outputs the final segregated structure into output/newsletter.json. Operations are processed concurrently.
+    Reads pure JSON dictionary, applies filtering, deduplication, ranking, and AI summarization rules.
+    Outputs the final segregated structure directly to AWS S3. Operations are processed concurrently.
     """
-    if not os.path.exists(file_path):
-        logger.error(f"[ERROR] file {file_path} not found.")
-        return {"scrape": "failed", "upload": "skipped"}
-
-    with open(file_path, "r", encoding="utf-8") as f:
-        data = json.load(f)
-        
-    logger.info(f"[SCRAPER] processing raw data from {os.path.basename(file_path)}")
-        
-    if not output_path:
-        from datetime import datetime
-        PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        DATA_DIR = os.getenv("DATA_DIR", os.path.join(PROJECT_ROOT, "data"))
-        output_path = os.path.join(DATA_DIR, "output", datetime.today().strftime("%Y-%m-%d"), "newsletter.json")
-        
-    out_dir = os.path.dirname(output_path)
-    if out_dir:
-        os.makedirs(out_dir, exist_ok=True)
-    
     seen_urls = set()
     seen_titles = []
     
+    # Replace Azure with AWS S3
+    s3_client = boto3.client('s3', region_name=os.getenv("AWS_REGION", "us-east-1"))
+    s3_bucket = os.getenv("S3_BUCKET_NAME")
+    
     # --- DEDUPLICATE AGAINST YESTERDAY'S NEWS ---
     from datetime import datetime, timedelta
-    _PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    _DATA_DIR = os.getenv("DATA_DIR", os.path.join(_PROJECT_ROOT, "data"))
     yesterday = (datetime.today() - timedelta(days=1)).strftime("%Y-%m-%d")    
-    yesterday_file = os.path.join(_DATA_DIR, "output", yesterday, "newsletter.json")
     yesterday_data = None
     
-    if os.path.exists(yesterday_file):
+    if s3_bucket:
         try:
-            with open(yesterday_file, "r", encoding="utf-8") as yf:
-                yesterday_data = json.load(yf)
+            blob_name = f"issue_{yesterday}.json"
+            logger.info(f"Downloading yesterday's issue from S3: {blob_name}")
+            response = s3_client.get_object(Bucket=s3_bucket, Key=blob_name)
+            yesterday_data = json.loads(response['Body'].read().decode('utf-8'))
         except Exception as e:
-            logger.error(f"Failed to load yesterday's local data: {e}")
-    else:
-        azure_conn_str = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
-        container_name = os.getenv("AZURE_CONTAINER_NAME", "news")
-        if azure_conn_str:
-            try:
-                from azure.storage.blob import BlobServiceClient
-                blob_service = BlobServiceClient.from_connection_string(azure_conn_str)
-                container_client = blob_service.get_container_client(container_name)
-                blob_name = f"issue_{yesterday}.json"
-                blob_client = container_client.get_blob_client(blob_name)
-                if blob_client.exists():
-                    logger.info(f"Downloading yesterday's issue from Azure: {blob_name}")
-                    download_stream = blob_client.download_blob()
-                    yesterday_data = json.loads(download_stream.readall())
-            except Exception as e:
-                logger.error(f"Failed to download yesterday's news from Azure: {e}")
+            logger.warning(f"Failed to download yesterday's news from S3 (may not exist): {e}")
 
     if yesterday_data:
         for item in yesterday_data.get("top_stories", []):
@@ -261,37 +219,21 @@ async def process_scraped_json(file_path: str, output_path: str = None):
         "cves": processed_cves
     }
 
-    # Save to disk
-    with open(output_path, "w", encoding="utf-8") as out:
-        json.dump(final_output, out, indent=4)
-        
     logger.info(f"[FILTER] selected {len(top_stories)} high-priority items.")
-    logger.info(f"[STORAGE] saved local issue data ({(os.path.getsize(output_path)//1024)}KB)")
 
-    # Cloud Storage Upload (Azure Blob Storage)
+    # Cloud Storage Upload (AWS S3)
     upload_status = "skipped"
-    azure_conn_str = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
-    container_name = os.getenv("AZURE_CONTAINER_NAME", "news")
-    if azure_conn_str:
+    if s3_bucket:
         try:
-            from azure.storage.blob import BlobServiceClient
-            blob_service = BlobServiceClient.from_connection_string(azure_conn_str)
-            container_client = blob_service.get_container_client(container_name)
-            
-            if not container_client.exists():
-                container_client.create_container()
-            
-            # Upload dated file
             blob_name = f"issue_{final_output['date']}.json"
             def _upload_all():
-                # Upload dated file
-                container_client.get_blob_client(blob_name).upload_blob(json.dumps(final_output), overwrite=True)
-                # Upload latest alias
-                container_client.get_blob_client("latest.json").upload_blob(json.dumps(final_output), overwrite=True)
+                # Upload JSON
+                s3_client.put_object(Bucket=s3_bucket, Key=blob_name, Body=json.dumps(final_output))
+                s3_client.put_object(Bucket=s3_bucket, Key="latest.json", Body=json.dumps(final_output))
                 return True
 
             if _retry_storage(_upload_all):
-                logger.info(f"[STORAGE] uploaded {blob_name} and latest.json (Azure)")
+                logger.info(f"[STORAGE] uploaded {blob_name} and latest.json to S3")
                 upload_status = "success"
             else:
                 upload_status = "failed"
@@ -299,11 +241,15 @@ async def process_scraped_json(file_path: str, output_path: str = None):
         except Exception as e:
             logger.error(f"[ERROR][STORAGE] cloud upload initialization failed: {e}")
             upload_status = "failed"
-
-    
+            
     # Also generate text version
-    text_out_path = output_path.replace(".json", ".txt")
-    generate_newsletter(final_output, text_out_path)
+    text_content = generate_newsletter(final_output)
+    if s3_bucket:
+        try:
+            s3_client.put_object(Bucket=s3_bucket, Key=f"issue_{final_output['date']}.txt", Body=text_content)
+            s3_client.put_object(Bucket=s3_bucket, Key="latest.txt", Body=text_content)
+        except Exception as e:
+             logger.error(f"[ERROR] Failed to upload newsletter text to S3: {e}")
 
     return {
         "scrape": "success",

@@ -1,74 +1,91 @@
-from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime
-from sqlalchemy.orm import declarative_base
-from sqlalchemy.orm import sessionmaker
-import datetime
 import os
+import datetime
+import logging
+import boto3
+from boto3.dynamodb.conditions import Key, Attr
 
-# Default to a 'data' directory in the project root if DATA_DIR is not set
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DATA_DIR = os.getenv("DATA_DIR", os.path.join(PROJECT_ROOT, "data"))
+logger = logging.getLogger(__name__)
 
-# Ensure the data directory exists
-os.makedirs(DATA_DIR, exist_ok=True)
+_DYNAMODB_TABLE_NAME = os.getenv("DYNAMODB_TABLE_NAME", "ZeroDaily-DB")
 
-SQLALCHEMY_DATABASE_URL = f"sqlite:///{os.path.join(DATA_DIR, 'subscribers.db')}"
-
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
-)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-Base = declarative_base()
-
-class Subscriber(Base):
-    __tablename__ = "subscribers"
-
-    id = Column(Integer, primary_key=True, index=True)
-    email = Column(String, unique=True, index=True)
-    phone = Column(String, index=True, nullable=True)
-    
-    verified_email = Column(Boolean, default=False)
-    is_active = Column(Boolean, default=True)
-    
-    verification_token = Column(String, index=True, nullable=True)
-    verification_token_created_at = Column(DateTime, nullable=True)
-    unsubscribe_token = Column(String, index=True, nullable=True)
-    
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
-
-class PageView(Base):
-    __tablename__ = "page_views"
-
-    id = Column(Integer, primary_key=True, index=True)
-    path = Column(String, index=True)
-    timestamp = Column(DateTime, default=datetime.datetime.utcnow)
-
-class ReadSession(Base):
-    __tablename__ = "read_sessions"
-
-    id = Column(Integer, primary_key=True, index=True)
-    path = Column(String, index=True)
-    duration_seconds = Column(Integer, default=0)
-    timestamp = Column(DateTime, default=datetime.datetime.utcnow)
-
-class EmailLog(Base):
-    __tablename__ = "email_logs"
-
-    id = Column(Integer, primary_key=True, index=True)
-    email = Column(String, index=True)
-    issue_date = Column(String, index=True)
-    track_token = Column(String, unique=True, index=True)
-    sent_at = Column(DateTime, default=datetime.datetime.utcnow)
-    clicked_at = Column(DateTime, nullable=True)
-    status = Column(String, default="sent")
+def _get_table():
+    region = os.getenv("AWS_REGION", "us-east-1")
+    dynamodb = boto3.resource('dynamodb', region_name=region)
+    return dynamodb.Table(_DYNAMODB_TABLE_NAME)
 
 def init_db():
-    Base.metadata.create_all(bind=engine)
+    """
+    In AWS Serverless architecture, table provisioning should be handled 
+    by Infrastructure as Code (Terraform/CloudFormation) or the AWS Console.
+    This function is a no-op to prevent breaking legacy initialization chains.
+    """
+    logger.info(f"[DB] Initialized DynamoDB connection to table: {_DYNAMODB_TABLE_NAME}")
 
-# Dependency to get db session
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+class DynamoDBClient:
+    """Serverless client wrapper for DynamoDB operations."""
+    
+    def __init__(self):
+        self.table = _get_table()
+        
+    def check_email_already_sent(self, email: str, issue_date: str) -> bool:
+        """
+        Idempotency check: Queries DynamoDB to verify if a newsletter was 
+        already sent to the specific user for the specific date.
+        
+        Expected Schema:
+        PK: EMAIL#<user_email>
+        SK: LOG#<issue_date>
+        """
+        try:
+            response = self.table.get_item(
+                Key={
+                    'PK': f'EMAIL#{email}',
+                    'SK': f'LOG#{issue_date}'
+                }
+            )
+            item = response.get('Item')
+            return bool(item and item.get('status') == 'sent')
+        except Exception as e:
+            logger.error(f"[DB ERROR] Failed to check email log in DynamoDB: {e}")
+            # Fail safe: return False to allow sending, or True to block? 
+            # We return False to prioritize delivery, but log the error.
+            return False
+
+    def log_email_sent(self, email: str, issue_date: str, track_token: str, status: str = "sent"):
+        """
+        Records the successful dispatch of an email to DynamoDB.
+        """
+        try:
+            self.table.put_item(
+                Item={
+                    'PK': f'EMAIL#{email}',
+                    'SK': f'LOG#{issue_date}',
+                    'type': 'EmailLog',
+                    'track_token': track_token,
+                    'status': status,
+                    'sent_at': datetime.datetime.utcnow().isoformat()
+                }
+            )
+        except Exception as e:
+            logger.error(f"[DB ERROR] Failed to add email log to DynamoDB: {e}")
+            raise e
+
+    def get_active_subscribers(self) -> list:
+        """
+        Scans DynamoDB for all active subscribers.
+        
+        Note: For very large datasets, a Global Secondary Index (GSI) on 
+        `is_active` combined with a query is heavily recommended over `scan()`.
+        """
+        try:
+            response = self.table.scan(
+                FilterExpression=Attr('type').eq('Subscriber') & Attr('is_active').eq(True)
+            )
+            return response.get('Items', [])
+        except Exception as e:
+            logger.error(f"[DB ERROR] Failed fetching subscribers from DynamoDB: {e}")
+            return []
+
+def get_db_client() -> DynamoDBClient:
+    """Dependency injection friendly client generator."""
+    return DynamoDBClient()

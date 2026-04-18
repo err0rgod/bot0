@@ -23,18 +23,18 @@ _blob_cache = {
 import time
 CACHE_TTL = 60 # 1 minute
 
-def _get_blob_service():
-    conn_str = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
-    if not conn_str: 
-        logger.debug("[STORAGE] No Azure connection string found.")
+def _get_s3_client():
+    region = os.getenv("AWS_REGION", "us-east-1")
+    bucket = os.getenv("S3_BUCKET_NAME")
+    if not bucket:
+        logger.debug("[STORAGE] No S3_BUCKET_NAME found.")
         return None, None
     try:
-        from azure.storage.blob import BlobServiceClient
-        service = BlobServiceClient.from_connection_string(conn_str)
-        container = os.getenv("AZURE_CONTAINER_NAME", "news")
-        return service, container
+        import boto3
+        s3 = boto3.client('s3', region_name=region)
+        return s3, bucket
     except Exception as e:
-        logger.debug(f"[STORAGE] Failed to initialize BlobServiceClient: {e}")
+        logger.debug(f"[STORAGE] Failed to initialize S3 Client: {e}")
         return None, None
 
 def _retry_azure_call(func, *args, **kwargs):
@@ -54,91 +54,62 @@ def _retry_azure_call(func, *args, **kwargs):
 
 def get_issue_dates() -> List[str]:
     """Returns a sorted list of all available issue dates (YYYY-MM-DD), newest first."""
-    service, container = _get_blob_service()
+    s3, bucket = _get_s3_client()
     
-    if service:
+    if s3:
         current_time = time.time()
         # If cache is valid, return it
         if _blob_cache["dates"] is not None and (current_time - _blob_cache["last_checked"] < CACHE_TTL):
             return _blob_cache["dates"]
             
         try:
-            container_client = service.get_container_client(container)
-            
             def _list_blobs():
-                return list(container_client.list_blobs(name_starts_with="issue_"))
+                # We fetch keys that look like 'issue_YYYY-MM-DD.json'
+                response = s3.list_objects_v2(Bucket=bucket, Prefix="issue_")
+                return response.get('Contents', [])
             
-            blobs = _retry_azure_call(_list_blobs)
+            objects = _retry_azure_call(_list_blobs)
             dates = []
-            for blob in blobs:
+            for obj in objects:
                 try:
-                    date_str = blob.name.replace("issue_", "").replace(".json", "")
+                    key = obj['Key']
+                    if not key.endswith(".json"):
+                        continue
+                    date_str = key.replace("issue_", "").replace(".json", "")
                     datetime.strptime(date_str, "%Y-%m-%d")
                     dates.append(date_str)
                 except ValueError:
                     continue
             
+            dates = list(set(dates)) # deduplicate
             dates.sort(reverse=True)
             _blob_cache["dates"] = dates
             _blob_cache["last_checked"] = time.time()
-            logger.info(f"[STORAGE] fetched list of {len(dates)} available issues from cloud.")
+            logger.info(f"[STORAGE] fetched list of {len(dates)} available issues from S3 cloud.")
             return dates
-        except Exception:
-            logger.warning("[WARN][FALLBACK] cloud fetch failed for issue dates, falling back to local storage.")
+        except Exception as e:
+            logger.warning(f"[WARN] S3 fetch failed for issue dates: {e}")
     
-    # Fallback to local
-    if not os.path.exists(OUTPUT_DIR):
-        return []
-    
-    dates = []
-    for d in os.listdir(OUTPUT_DIR):
-        path = os.path.join(OUTPUT_DIR, d)
-        if os.path.isdir(path):
-            try:
-                datetime.strptime(d, "%Y-%m-%d")
-                dates.append(d)
-            except ValueError:
-                pass # not a date folder
-                
-    dates.sort(reverse=True)
-    return dates
+    return []
 
 def get_issue_data(date_str: str) -> Optional[Dict]:
     """Reads and returns the JSON data for a specific issue date."""
     if date_str in _blob_cache["issues"]:
         return _blob_cache["issues"][date_str]
 
-    service, container = _get_blob_service()
-    if service:
+    s3, bucket = _get_s3_client()
+    if s3:
         try:
-            container_client = service.get_container_client(container)
-            blob_client = container_client.get_blob_client(f"issue_{date_str}.json")
-            
             def _download():
-                return json.loads(blob_client.download_blob().readall())
+                response = s3.get_object(Bucket=bucket, Key=f"issue_{date_str}.json")
+                return json.loads(response['Body'].read().decode('utf-8'))
             
             data = _retry_azure_call(_download)
             _blob_cache["issues"][date_str] = data
-            logger.debug(f"[STORAGE] downloaded issue for {date_str} from cloud.")
+            logger.debug(f"[STORAGE] downloaded issue for {date_str} from S3.")
             return data
-        except Exception:
-            logger.warning(f"[WARN][FALLBACK] cloud download failed for {date_str}, check local cache.")
-            
-    # Priority 1: Check standard local output path for the date
-    json_path = os.path.join(OUTPUT_DIR, date_str, "newsletter_prepared_data.json")
-    # Priority 2: Simple fallback to data dir as requested by user
-    fallback_path = os.path.join(DATA_DIR, "newsletter_prepared_data.json")
-    
-    for path in [json_path, fallback_path]:
-        if os.path.exists(path):
-            try:
-                with open(path, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                    _blob_cache["issues"][date_str] = data
-                    logger.info(f"[WARN][FALLBACK] using local cached newsletter data for {date_str}")
-                    return data
-            except Exception as e:
-                logger.error(f"[ERROR] failed to read local fallback for {date_str}: {e}")
+        except Exception as e:
+            logger.warning(f"[WARN] S3 download failed for {date_str}: {e}")
                 
     return None
 
