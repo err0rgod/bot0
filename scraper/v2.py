@@ -190,7 +190,7 @@ def main():
     if s3_bucket:
         try:
             import boto3
-            s3_client = boto3.client('s3', region_name=os.getenv("AWS_REGION", "us-east-1"))
+            s3_client = boto3.client('s3', region_name=os.getenv("AWS_REGION", "ap-south-2"))
             raw_blob_name = f"raw_data_{datetime.today().strftime('%Y-%m-%d')}.json"
             s3_client.put_object(Bucket=s3_bucket, Key=raw_blob_name, Body=json.dumps(output))
             logging.info(f"Raw data saved to S3 Key: {raw_blob_name}")

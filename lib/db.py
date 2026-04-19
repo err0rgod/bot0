@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 _DYNAMODB_TABLE_NAME = os.getenv("DYNAMODB_TABLE_NAME", "ZeroDaily-DB")
 
 def _get_table():
-    region = os.getenv("AWS_REGION", "us-east-1")
+    region = os.getenv("AWS_REGION", "ap-south-2")
     dynamodb = boto3.resource('dynamodb', region_name=region)
     return dynamodb.Table(_DYNAMODB_TABLE_NAME)
 
@@ -39,7 +39,7 @@ class DynamoDBClient:
         try:
             response = self.table.get_item(
                 Key={
-                    'PK': f'EMAIL#{email}',
+                    'PK': f'EMAIL#{email.lower()}',
                     'SK': f'LOG#{issue_date}'
                 }
             )
@@ -58,7 +58,7 @@ class DynamoDBClient:
         try:
             self.table.put_item(
                 Item={
-                    'PK': f'EMAIL#{email}',
+                    'PK': f'EMAIL#{email.lower()}',
                     'SK': f'LOG#{issue_date}',
                     'type': 'EmailLog',
                     'track_token': track_token,

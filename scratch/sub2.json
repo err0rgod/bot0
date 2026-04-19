@@ -1,0 +1,9 @@
+{
+    "PK": {"S": "EMAIL#ndgaming458@gmail.com"},
+    "SK": {"S": "PROFILE"},
+    "email": {"S": "ndgaming458@gmail.com"},
+    "type": {"S": "Subscriber"},
+    "is_active": {"BOOL": true},
+    "verified_email": {"BOOL": true},
+    "created_at": {"S": "2026-04-19T18:25:00Z"}
+}

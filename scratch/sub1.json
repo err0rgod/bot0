@@ -1,0 +1,9 @@
+{
+    "PK": {"S": "EMAIL#nirbhayerror@gmail.com"},
+    "SK": {"S": "PROFILE"},
+    "email": {"S": "nirbhayerror@gmail.com"},
+    "type": {"S": "Subscriber"},
+    "is_active": {"BOOL": true},
+    "verified_email": {"BOOL": true},
+    "created_at": {"S": "2026-04-19T18:25:00Z"}
+}
