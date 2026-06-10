@@ -28,7 +28,9 @@ resend.api_key = os.getenv("RESEND_API_KEY", "")
 
 
 
-def send_newsletters():
+import asyncio
+
+async def send_newsletters():
     start_time = time.time()
     logger.info("[SUMMARY] starting automated newsletter dispatch")
     
@@ -160,7 +162,7 @@ def send_newsletters():
             
             # Humanize
             context = f"the {date_str} cybersecurity issue"
-            human_text = humanize_email(base_html, name, context)
+            human_text = await humanize_email(base_html, name, context)
             
             # Safety Filter
             if not safety_filter(human_text):
@@ -189,6 +191,13 @@ def send_newsletters():
           <tr>
             <td style="padding:20px;font-size:16px;line-height:1.7;color:#111111;">
               {html_text}
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0 20px;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="margin-top: 20px; border-top: 1px solid #f1f5f9;">
+                {story_html}
+              </table>
             </td>
           </tr>
           <tr>
@@ -251,7 +260,7 @@ def lambda_handler(event, context):
     Triggered manually or via S3 Upload EventBridge rule.
     """
     logger.info("Lambda invocation Triggered - starting Email Dispatch cycle.")
-    return send_newsletters()
+    return asyncio.run(send_newsletters())
 
 if __name__ == "__main__":
-    send_newsletters()
+    asyncio.run(send_newsletters())

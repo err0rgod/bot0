@@ -4,7 +4,7 @@ from llm.client import LLMClient
 
 logger = logging.getLogger(__name__)
 
-def humanize_email(email_text, user_name, context="Cybersecurity updates"):
+async def humanize_email(email_text, user_name, context="Cybersecurity updates"):
     """
     Converts email content into a casual, human-like plain text message.
     Uses LLM to ensure tone and length constraints.
@@ -24,17 +24,17 @@ def humanize_email(email_text, user_name, context="Cybersecurity updates"):
     STRICT CONSTRAINTS:
     - Format: Plain text ONLY. No HTML, no bullets, no banners, no headings.
     - Tone: Casual and personal (like a real person typing).
-    - Length: 5 to 8 lines max.
+    - Length: 8 to 12 lines max.
     - Forbidden Words: exciting, launch, introducing, features, update.
-    - Links: Exactly 1 link (no buttons).
+    - Links: Exactly 1 link (no buttons) - this should be the link to the full issue.
     - Closing: Add a natural soft question at the end (e.g., "let me know if this helps").
     - Personalization: Use the name {user_name} naturally.
     
-    Make it feel like a developer personally wrote it.
+    Make it feel like a developer personally wrote it. Mention a few key stories if they seem important.
     """
 
     try:
-        humanized = client.generate([{"role": "user", "content": prompt}], max_tokens=300)
+        humanized = await client.generate([{"role": "user", "content": prompt}], max_tokens=400)
         humanized = humanized.strip()
         
         # Immediate safety check

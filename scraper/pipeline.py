@@ -78,30 +78,34 @@ async def process_scraped_data(data: dict) -> dict:
     s3_client = boto3.client('s3', region_name=os.getenv("AWS_REGION", "us-east-1"))
     s3_bucket = os.getenv("S3_BUCKET_NAME")
     
-    # --- DEDUPLICATE AGAINST YESTERDAY'S NEWS ---
+    # --- DEDUPLICATE AGAINST RECENT NEWS ---
     from datetime import datetime, timedelta
+    today = datetime.today().strftime("%Y-%m-%d")    
     yesterday = (datetime.today() - timedelta(days=1)).strftime("%Y-%m-%d")    
-    yesterday_data = None
     
-    if s3_bucket:
-        try:
-            blob_name = f"issue_{yesterday}.json"
-            logger.info(f"Downloading yesterday's issue from S3: {blob_name}")
-            response = s3_client.get_object(Bucket=s3_bucket, Key=blob_name)
-            yesterday_data = json.loads(response['Body'].read().decode('utf-8'))
-        except Exception as e:
-            logger.warning(f"Failed to download yesterday's news from S3 (may not exist): {e}")
+    for date_to_check in [today, yesterday]:
+        check_data = None
+        if s3_bucket:
+            try:
+                blob_name = f"issue_{date_to_check}.json"
+                logger.info(f"Checking for recent issue in S3: {blob_name}")
+                response = s3_client.get_object(Bucket=s3_bucket, Key=blob_name)
+                check_data = json.loads(response['Body'].read().decode('utf-8'))
+            except s3_client.exceptions.NoSuchKey:
+                logger.debug(f"No existing issue found for {date_to_check} in S3.")
+            except Exception as e:
+                logger.warning(f"Failed to download {date_to_check} news from S3: {e}")
 
-    if yesterday_data:
-        for item in yesterday_data.get("top_stories", []):
-            if item.get("url"):
-                seen_urls.add(item["url"])
-            if item.get("title"):
-                seen_titles.append(item["title"])
-        for cve in yesterday_data.get("cves", []):
-            if cve.get("title"):
-                seen_titles.append(cve["title"])
-        logger.info(f"Loaded {len(yesterday_data.get('top_stories', []))} stories and {len(yesterday_data.get('cves', []))} CVEs from yesterday for deduplication.")
+        if check_data:
+            for item in check_data.get("top_stories", []):
+                if item.get("url"):
+                    seen_urls.add(item["url"])
+                if item.get("title"):
+                    seen_titles.append(item["title"])
+            for cve in check_data.get("cves", []):
+                if cve.get("title"):
+                    seen_titles.append(cve["title"])
+            logger.info(f"Loaded content from {date_to_check} for deduplication.")
     
     processed_news = []
     processed_cves = []

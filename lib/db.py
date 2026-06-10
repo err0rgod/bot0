@@ -78,10 +78,19 @@ class DynamoDBClient:
         `is_active` combined with a query is heavily recommended over `scan()`.
         """
         try:
+            # We filter for active and verified profiles.
+            # Many legacy items may lack the 'type' attribute, so we rely on SK='PROFILE'.
             response = self.table.scan(
-                FilterExpression=Attr('type').eq('Subscriber') & Attr('is_active').eq(True)
+                FilterExpression=Attr('SK').eq('PROFILE') & Attr('is_active').eq(True) & Attr('verified_email').eq(True)
             )
-            return response.get('Items', [])
+            items = response.get('Items', [])
+            
+            # Ensure each item has an 'email' field (fallback to PK extraction)
+            for item in items:
+                if 'email' not in item and 'PK' in item:
+                    item['email'] = item['PK'].replace('EMAIL#', '')
+            
+            return items
         except Exception as e:
             logger.error(f"[DB ERROR] Failed fetching subscribers from DynamoDB: {e}")
             return []
