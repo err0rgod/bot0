@@ -4,8 +4,11 @@ import asyncio
 from dotenv import load_dotenv
 
 # Add project root to sys.path
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-load_dotenv(override=True)
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
+load_dotenv(os.path.join(PROJECT_ROOT, ".env"), override=True)
 
 from lib.humanizer import humanize_email, safety_filter
 
@@ -42,4 +45,3 @@ async def test_humanizer():
 
 if __name__ == "__main__":
     asyncio.run(test_humanizer())
-

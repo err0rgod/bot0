@@ -3,13 +3,16 @@ import os
 import asyncio
 from dotenv import load_dotenv
 
-# Ensure we can import the llm module
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+# Ensure we can import the llm module by adding the project root to sys.path
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
 from llm.client import LLMClient
 
 async def main():
     # Load .env explicitly to ensure DEEPSEEK_API_KEY is available
-    load_dotenv()
+    load_dotenv(os.path.join(PROJECT_ROOT, ".env"))
     
     print("Testing DeepSeek LLM Integration...")
     
@@ -49,4 +52,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-

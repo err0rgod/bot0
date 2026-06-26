@@ -207,24 +207,24 @@ If real credentials are configured in `.env`, you can execute these test scripts
 
 2. **LLM Connection Integration:**
    ```bash
-   python test_deepseek.py
+   python tests/test_integration_deepseek.py
    ```
    *Sends a sample cybersecurity article to the DeepSeek API to verify model authentication, rate-limiting, and paragraph response formats.*
 
 3. **Tone Rewrite Integration:**
    ```bash
-   python test_humanizer.py
+   python tests/test_integration_humanizer.py
    ```
    *Converts raw HTML snippets into casual plain text to inspect length constraints and safety filters.*
 
 4. **Feed Fetcher Test:**
    ```bash
-   python test_feeds.py
+   python tests/test_integration_feeds.py
    ```
    *Tests connection status and entry parsing efficiency across primary target RSS links.*
 
 5. **Email Dispatch Integration:**
    ```bash
-   python test_send.py
+   python tests/test_integration_send.py
    ```
    *Dispatches a test newsletter directly to a developer inbox to inspect layout structures, links styling, and SPF/DKIM validation.*
