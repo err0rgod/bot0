@@ -1,12 +1,13 @@
 import sys
 import os
+import asyncio
 from dotenv import load_dotenv
 
 # Ensure we can import the llm module
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from llm.client import LLMClient
 
-def main():
+async def main():
     # Load .env explicitly to ensure DEEPSEEK_API_KEY is available
     load_dotenv()
     
@@ -31,7 +32,7 @@ def main():
 
     print("\nSending sample test prompt to DeepSeek API...")
     try:
-        response = client.generate(
+        response = await client.generate(
             messages=[
                 {"role": "system", "content": "You are a highly engaging cybersecurity writer."},
                 {"role": "user", "content": sample_prompt}
@@ -47,4 +48,5 @@ def main():
         print(f"[-] Generation failed: {e}")
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
+

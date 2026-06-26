@@ -66,10 +66,10 @@ def generate_newsletter(json_data: dict) -> str:
 import asyncio
 import boto3
 
-async def process_scraped_data(data: dict) -> dict:
+async def _process_scraped_data_internal(data: dict) -> tuple[dict, str]:
     """
-    Reads pure JSON dictionary, applies filtering, deduplication, ranking, and AI summarization rules.
-    Outputs the final segregated structure directly to AWS S3. Operations are processed concurrently.
+    Core business logic for processing scraped data.
+    Returns a tuple of (final_output_dict, upload_status_str).
     """
     seen_urls = set()
     seen_titles = []
@@ -255,9 +255,57 @@ async def process_scraped_data(data: dict) -> dict:
         except Exception as e:
              logger.error(f"[ERROR] Failed to upload newsletter text to S3: {e}")
 
+    return final_output, upload_status
+
+async def process_scraped_data(data: dict) -> dict:
+    """
+    Reads pure JSON dictionary, applies filtering, deduplication, ranking, and AI summarization rules.
+    Outputs the final segregated structure directly to AWS S3. Operations are processed concurrently.
+    """
+    final_output, upload_status = await _process_scraped_data_internal(data)
     return {
         "scrape": "success",
         "upload": upload_status,
         "issue_date": final_output['date'],
-        "stories": len(top_stories)
+        "stories": len(final_output.get("top_stories", []))
     }
+
+def process_scraped_json(input_path: str, output_path: str) -> dict:
+    """
+    Sync wrapper to read scraped data from input_path, process it,
+    save the final output to output_path (JSON and TXT), and return the final JSON dict.
+    """
+    with open(input_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+        
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
+    if loop.is_running():
+        # Running inside another loop (e.g. some web framework or task runner)
+        # We run it synchronously using loop.run_until_complete if we are in another thread,
+        # but in normal scripts loop.is_running() is False.
+        # Let's create a future and run it if possible
+        import nest_asyncio
+        nest_asyncio.apply()
+        final_output, _ = loop.run_until_complete(_process_scraped_data_internal(data))
+    else:
+        final_output, _ = loop.run_until_complete(_process_scraped_data_internal(data))
+        
+    # Ensure directory exists
+    os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
+    
+    # Save JSON output
+    with open(output_path, "w", encoding="utf-8") as f:
+        json.dump(final_output, f, indent=2)
+        
+    # Save TXT output
+    text_content = generate_newsletter(final_output)
+    txt_path = output_path.replace(".json", ".txt")
+    with open(txt_path, "w", encoding="utf-8") as f:
+        f.write(text_content)
+        
+    return final_output

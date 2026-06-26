@@ -1,5 +1,6 @@
 import sys
 import os
+import asyncio
 from dotenv import load_dotenv
 
 # Add project root to sys.path
@@ -8,19 +9,19 @@ load_dotenv(override=True)
 
 from lib.humanizer import humanize_email, safety_filter
 
-def test_humanizer():
+async def test_humanizer():
     sample_html = """
     <h1>ZeroDay Weekly</h1>
     <p>Exciting news! We are launching new features today.</p>
     <ul>
-        <li>Story 1: CVE-2026-0001 fix</li>
-        <li>Story 2: New update available</li>
+      <li>Story 1: CVE-2026-0001 fix</li>
+      <li>Story 2: New update available</li>
     </ul>
     <a href="http://localhost:8000/weekly">Read More</a>
     """
     
     print("--- Testing Humanization ---")
-    human_text = humanize_email(sample_html, "Nirbhay", "cybersecurity news")
+    human_text = await humanize_email(sample_html, "Nirbhay", "cybersecurity news")
     print("\n[Humanized Text]:")
     print(human_text)
     print("\n" + "="*50 + "\n")
@@ -40,4 +41,5 @@ def test_humanizer():
             print("- Too many links")
 
 if __name__ == "__main__":
-    test_humanizer()
+    asyncio.run(test_humanizer())
+
