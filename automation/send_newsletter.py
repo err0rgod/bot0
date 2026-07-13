@@ -176,6 +176,12 @@ async def send_newsletters():
             elif "http" not in human_text:
                 human_text += f"\n\nlink to full issue: {track_url}"
 
+            # Prepend roasts
+            roasts = latest_issue.get("roast_summary", [])
+            if roasts:
+                roasts_text = "\n\n".join(roasts)
+                human_text = f"{roasts_text}\n\n---\n\n{human_text}"
+
             # Convert basic plain text features to HTML
             import re
             html_text = human_text.replace('\n', '<br>')

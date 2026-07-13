@@ -176,3 +176,62 @@ async def summarize_from_json(json_input) -> list:
             })
 
     return results
+
+
+@async_rate_limit_and_retry(max_retries=3, base_delay=6.0)
+async def generate_roasts(stories: list) -> list:
+    """
+    Generates 2 to 4 separate roast paragraphs about the security news in this issue. 
+    Each roast MUST be exactly 3 to 4 lines long.
+    Returns a list of strings.
+    """
+    client = _get_client()
+    
+    # Extract titles and short summaries for context
+    context = ""
+    for idx, story in enumerate(stories[:5], 1):
+        context += f"Story {idx}: {story.get('title')}\nSummary: {story.get('short_summary')}\n\n"
+        
+    prompt = f"""You are a cynical, witty, and slightly sarcastic cybersecurity veteran writing a newsletter intro.
+Based on the following security news, generate 2 to 4 separate roast paragraphs making fun of the industry's failures, the threat actors, or the poor victims.
+    
+STRICT CONSTRAINTS:
+1. Generate exactly 2 to 4 separate paragraphs.
+2. Each roast paragraph MUST be exactly 3 to 4 lines long.
+3. Output the result strictly as a JSON array of strings, where each string is a single roast paragraph. No markdown formatting outside the JSON, just the JSON array.
+
+Example format:
+[
+  "Roast paragraph 1...",
+  "Roast paragraph 2...",
+  "Roast paragraph 3..."
+]
+
+News Context:
+{context}
+"""
+
+    response_text = await client.generate(
+        messages=[
+            {"role": "system", "content": "You are a sarcastic cybersecurity expert. You output only valid JSON arrays of strings."},
+            {"role": "user", "content": prompt}
+        ],
+        model=MODEL,
+        temperature=0.7,
+        max_tokens=1000
+    )
+    
+    try:
+        # Clean up possible markdown code blocks
+        clean_json = response_text.replace("```json", "").replace("```", "").strip()
+        roasts = json.loads(clean_json)
+        if isinstance(roasts, list) and all(isinstance(r, str) for r in roasts):
+            return roasts
+    except Exception as e:
+        print(f"[Error] Failed to parse roasts JSON: {e}")
+        
+    # Fallback if generation or parsing fails
+    return [
+        "Another day, another catastrophic failure in the cybersecurity world. It seems no matter how much budget is thrown at the problem, someone still clicks the phishing link. Welcome to today's dumpster fire.",
+        "If you thought yesterday was bad, just wait until you see the new CVEs we've got lined up. Grab your coffee and prepare to facepalm, because the industry has truly outdone itself this time."
+    ]

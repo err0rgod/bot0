@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 load_dotenv(os.path.join(project_root, ".env"), override=True)
 
-from scraper.summarizer import summarize_article, generate_two_level_summary
+from scraper.summarizer import summarize_article, generate_two_level_summary, generate_roasts
 from scraper.categorizer import categorize_article
 from scraper.utils import is_duplicate_title, rank_article
 
@@ -215,12 +215,17 @@ async def _process_scraped_data_internal(data: dict) -> tuple[dict, str]:
     
     logger.info(f"Selected {len(top_stories)} Top stories for the final newsletter.")
 
+    # Generate roasts based on top stories
+    logger.info("Generating roasts for the newsletter...")
+    roast_summary = await generate_roasts(top_stories)
+
     # --- BUILD FINAL JSON ---
     from datetime import datetime
     final_output = {
         "date": datetime.today().strftime("%Y-%m-%d"),
         "top_stories": top_stories,
-        "cves": processed_cves
+        "cves": processed_cves,
+        "roast_summary": roast_summary
     }
 
     logger.info(f"[FILTER] selected {len(top_stories)} high-priority items.")

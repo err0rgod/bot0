@@ -13,7 +13,8 @@ class TestPipeline(unittest.TestCase):
     @patch('scraper.pipeline.categorize_article')
     @patch('scraper.pipeline.generate_two_level_summary')
     @patch('scraper.pipeline.summarize_article')
-    def test_pipeline_processing(self, mock_summarize, mock_gen_summary, mock_categorize, mock_s3_client_cls):
+    @patch('scraper.pipeline.generate_roasts')
+    def test_pipeline_processing(self, mock_generate_roasts, mock_summarize, mock_gen_summary, mock_categorize, mock_s3_client_cls):
         # Mock categorization & summarization
         mock_categorize.return_value = "Zero-Day"
         mock_gen_summary.return_value = {
@@ -21,6 +22,9 @@ class TestPipeline(unittest.TestCase):
             "deep_summary": "This is a deeper paragraph structure representing the story."
         }
         mock_summarize.return_value = "CVE summary detail."
+        mock_generate_roasts.return_value = [
+            "Roast 1", "Roast 2"
+        ]
         
         # Mock boto3 s3 client
         mock_s3 = MagicMock()
