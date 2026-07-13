@@ -187,7 +187,7 @@ The unit testing system leverages Python's built-in `unittest` framework to veri
 #### Running the Unit Tests
 From the root directory, run:
 ```bash
-python run_tests.py
+python tests/run_tests.py
 ```
 
 The runner discovers all unit tests in the `tests/` directory matching `test_unit_*.py`:

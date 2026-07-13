@@ -5,6 +5,8 @@ RUN yum update -y && yum install -y \
     gcc \
     gcc-c++ \
     make \
+    zlib-devel \
+    libjpeg-devel \
     && yum clean all
 
 COPY requirements.txt ${LAMBDA_TASK_ROOT}
