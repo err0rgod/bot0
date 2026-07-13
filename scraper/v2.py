@@ -13,6 +13,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 
 # sources to fetch the content 
 NEWS_FEEDS = [
+    "https://feeds.feedburner.com/TheHackers",
     "https://feeds.feedburner.com/TheHackersNews", # The Hacker News
     "https://www.bleepingcomputer.com/feed/",
     "https://krebsonsecurity.com/feed/",
