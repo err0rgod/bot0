@@ -1,0 +1,4 @@
+- [ ] Review and expand Idempotency mechanisms
+- [ ] Review and expand Async Execution pipelines
+- [ ] Refactor data structures to use Pydantic models for strict typing
+- [ ] Implement Infrastructure as Code (IaC) using Terraform or AWS CDK
