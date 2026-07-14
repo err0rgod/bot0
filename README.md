@@ -1,8 +1,8 @@
-# 🛡️ ZeroDaily
+# 🛡️ bot0
 
-![ZeroDaily Banner](https://img.shields.io/badge/Status-Active-success) ![Python](https://img.shields.io/badge/Python-3.11+-blue.svg) ![AWS](https://img.shields.io/badge/Deployed-AWS%20Lambda-orange.svg) ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
+![bot0 Banner](https://img.shields.io/badge/Status-Active-success) ![Python](https://img.shields.io/badge/Python-3.11+-blue.svg) ![AWS](https://img.shields.io/badge/Deployed-AWS%20Lambda-orange.svg) ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 
-**ZeroDaily** is an autonomous, AI-driven cybersecurity newsletter engine. It constantly monitors the web for the latest zero-day vulnerabilities, data breaches, and tech news, uses Large Language Models (LLMs) to generate deep technical summaries (and hilarious, brutal "roasts" of bad security practices), and dispatches them directly to subscribers via email.
+**bot0** is an autonomous, AI-driven cybersecurity newsletter engine. It constantly monitors the web for the latest zero-day vulnerabilities, data breaches, and tech news, uses Large Language Models (LLMs) to generate deep technical summaries (and hilarious, brutal "roasts" of bad security practices), and dispatches them directly to subscribers via email.
 
 ---
 
@@ -19,12 +19,12 @@
 
 ## 🚀 Getting Started Locally
 
-Want to run the ZeroDaily engine on your local machine? It's easy to spin up!
+Want to run the bot0 engine on your local machine? It's easy to spin up!
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/your-username/zerodaily-bot.git
-cd zerodaily-bot
+git clone https://github.com/your-username/bot0.git
+cd bot0
 ```
 
 ### 2. Install Dependencies

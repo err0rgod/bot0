@@ -1,6 +1,6 @@
-# Contributing to ZeroDaily
+# Contributing to bot0
 
-First off, thank you for considering contributing to ZeroDaily! It's people like you that make open-source tools robust, fun, and powerful.
+First off, thank you for considering contributing to bot0! It's people like you that make open-source tools robust, fun, and powerful.
 
 ## How Can I Contribute?
 
