@@ -1,4 +1,4 @@
-# 🛡️ bot0
+# <img src="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6/svgs/solid/shield-halved.svg" width="32" height="32" align="top" alt="Shield"> bot0
 
 ![bot0 Banner](https://img.shields.io/badge/Status-Active-success) ![Python](https://img.shields.io/badge/Python-3.11+-blue.svg) ![AWS](https://img.shields.io/badge/Deployed-AWS%20Lambda-orange.svg) ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 
@@ -6,18 +6,18 @@
 
 ---
 
-## ✨ Features
+## <img src="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6/svgs/solid/wand-magic-sparkles.svg" width="24" height="24" align="top" alt="Features"> Features
 
-- **🧠 AI-Powered Summarization:** Uses DeepSeek models to break down complex cybersecurity articles into short, readable summaries and deep-dive technical insights.
-- **🔥 Automated Security Roasts:** The AI generates punchy 3-4 line roasts for top security failures and breaches of the day, giving your newsletter a unique edge.
-- **⚡ Fully Serverless:** Runs 100% autonomously in the cloud via AWS Lambda, scaling instantly with zero maintenance.
-- **☁️ Cloud Storage & State:** Stores historical issues in AWS S3 and utilizes AWS DynamoDB to enforce idempotency (ensuring subscribers never receive the same email twice).
-- **🛡️ Quality Controlled:** Features built-in tests, HTML-filtering algorithms, and duplicate detection (difflib) to guarantee high-quality outputs.
-- **📬 One-Click Dispatch:** Integrates with the Resend API to blast newsletters out seamlessly and dodge spam filters.
+- **<img src="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6/svgs/solid/brain.svg" width="16" height="16" align="top" alt="Brain"> AI-Powered Summarization:** Uses DeepSeek models to break down complex cybersecurity articles into short, readable summaries and deep-dive technical insights.
+- **<img src="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6/svgs/solid/fire.svg" width="16" height="16" align="top" alt="Fire"> Automated Security Roasts:** The AI generates punchy 3-4 line roasts for top security failures and breaches of the day, giving your newsletter a unique edge.
+- **<img src="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6/svgs/solid/bolt.svg" width="16" height="16" align="top" alt="Bolt"> Fully Serverless:** Runs 100% autonomously in the cloud via AWS Lambda, scaling instantly with zero maintenance.
+- **<img src="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6/svgs/solid/cloud.svg" width="16" height="16" align="top" alt="Cloud"> Cloud Storage & State:** Stores historical issues in AWS S3 and utilizes AWS DynamoDB to enforce idempotency (ensuring subscribers never receive the same email twice).
+- **<img src="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6/svgs/solid/shield.svg" width="16" height="16" align="top" alt="Shield"> Quality Controlled:** Features built-in tests, HTML-filtering algorithms, and duplicate detection (difflib) to guarantee high-quality outputs.
+- **<img src="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6/svgs/solid/envelope.svg" width="16" height="16" align="top" alt="Mail"> One-Click Dispatch:** Integrates with the Resend API to blast newsletters out seamlessly and dodge spam filters.
 
 ---
 
-## 🚀 Getting Started Locally
+## <img src="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6/svgs/solid/rocket.svg" width="24" height="24" align="top" alt="Rocket"> Getting Started Locally
 
 Want to run the bot0 engine on your local machine? It's easy to spin up!
 
@@ -54,7 +54,7 @@ python scraper/v2.py
 
 ---
 
-## 🧪 Running Tests
+## <img src="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6/svgs/solid/flask.svg" width="24" height="24" align="top" alt="Flask"> Running Tests
 We enforce strict CI/CD pipelines to ensure stability. To run the full test suite locally:
 ```bash
 python tests/run_tests.py
@@ -63,16 +63,16 @@ This tests everything from our AWS S3 mocking to our AI content sanitizers.
 
 ---
 
-## 📖 Documentation & Technical Specs
+## <img src="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6/svgs/solid/book.svg" width="24" height="24" align="top" alt="Book"> Documentation & Technical Specs
 
 Want to know exactly how the engine works under the hood? 
 We have documented the **entire** architecture (including our prompt engineering, geometric exponential backoffs, and AWS event structures).
 
-👉 **[Read the Full Technical Documentation here](documentation.md)**
+<img src="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6/svgs/solid/arrow-right.svg" width="16" height="16" align="top" alt="Pointer"> **[Read the Full Technical Documentation here](documentation.md)**
 
 ---
 
-## 🤝 Contributing
+## <img src="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6/svgs/solid/handshake.svg" width="24" height="24" align="top" alt="Handshake"> Contributing
 
 We welcome contributions! Whether you want to add a new RSS feed, tweak the LLM prompt, or optimize our AWS Lambda deployments, your help is appreciated.
 
@@ -80,5 +80,5 @@ Please see our **[CONTRIBUTING.md](CONTRIBUTING.md)** for detailed instructions 
 
 ---
 
-## 📄 License
+## <img src="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6/svgs/solid/file-contract.svg" width="24" height="24" align="top" alt="License"> License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
