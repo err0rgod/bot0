@@ -45,11 +45,11 @@ Avoid jargon and long dense blocks of text.
 Article Title: {title}
 Article Content: {compressed}
 
-Return ONLY the summary paragraphs with no titles, headers, or introductory phrases."""
+Return ONLY the summary paragraphs with no titles, headers, or introductory phrases. You MUST reply ONLY in English."""
 
     response_text = await client.generate(
         messages=[
-            {"role": "system", "content": "You are a helpful, creative cybersecurity writer who explains complex topics engagingly in concise paragraphs. You always aim for a word count between 300 and 600 words."},
+            {"role": "system", "content": "You are a helpful, creative cybersecurity writer who explains complex topics engagingly in concise paragraphs. You always aim for a word count between 300 and 600 words. You MUST reply ONLY in English."},
             {"role": "user", "content": prompt}
         ],
         model=MODEL,
@@ -98,11 +98,12 @@ Format your response EXACTLY as follows (include the exact section headers):
 (your deep summary paragraphs here)
 
 Article Title: {title}
-Article Content: {compressed}"""
+Article Content: {compressed}
+You MUST reply ONLY in English."""
 
     text = await client.generate(
         messages=[
-            {"role": "system", "content": "You are a professional cybersecurity journalist who writes in a highly engaging, clear, readable style using short paragraphs. For deep summaries, you always target 300-600 words."},
+            {"role": "system", "content": "You are a professional cybersecurity journalist who writes in a highly engaging, clear, readable style using short paragraphs. For deep summaries, you always target 300-600 words. You MUST reply ONLY in English."},
             {"role": "user", "content": prompt}
         ],
         model=MODEL,
@@ -199,6 +200,7 @@ STRICT CONSTRAINTS:
 1. Generate exactly 2 to 4 separate paragraphs.
 2. Each roast paragraph MUST be exactly 3 to 4 lines long.
 3. Output the result strictly as a JSON array of strings, where each string is a single roast paragraph. No markdown formatting outside the JSON, just the JSON array.
+4. You MUST reply ONLY in English.
 
 Example format:
 [
@@ -213,7 +215,7 @@ News Context:
 
     response_text = await client.generate(
         messages=[
-            {"role": "system", "content": "You are a sarcastic cybersecurity expert. You output only valid JSON arrays of strings."},
+            {"role": "system", "content": "You are a sarcastic cybersecurity expert. You output only valid JSON arrays of strings. You MUST reply ONLY in English."},
             {"role": "user", "content": prompt}
         ],
         model=MODEL,

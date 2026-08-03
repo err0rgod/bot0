@@ -171,9 +171,9 @@ async def send_newsletters():
                 
             # Inject tracking
             track_url = f"{BASE_URL}/daily?track={track_token}"
-            if "{BASE_URL}/daily" in human_text:
-                 human_text = human_text.replace(f"{BASE_URL}/daily", track_url)
-            elif "http" not in human_text:
+            if "[ISSUE_LINK]" in human_text:
+                human_text = human_text.replace("[ISSUE_LINK]", track_url)
+            else:
                 human_text += f"\n\nlink to full issue: {track_url}"
 
             # Prepend roasts

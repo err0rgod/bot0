@@ -16,7 +16,7 @@ async def humanize_email(email_text, user_name, context="Cybersecurity updates")
     client = LLMClient()
     
     prompt = f"""
-    Rewrite this email as a personal, casual plain-text message from a developer to {user_name}.
+    Rewrite this email in english as a personal, casual plain-text message from a developer to {user_name}.
     
     CONTEXT: {context}
     CONTENT: {clean_text}
@@ -24,9 +24,8 @@ async def humanize_email(email_text, user_name, context="Cybersecurity updates")
     STRICT CONSTRAINTS:
     - Format: Plain text ONLY. No HTML, no bullets, no banners, no headings.
     - Tone: Casual and personal (like a real person typing).
-    - Length: 8 to 12 lines max.
+    - Links: You MUST include exactly one link placeholder for the full issue. Write it EXACTLY as: [ISSUE_LINK] (Do NOT invent or guess any http/https URLs).
     - Forbidden Words: exciting, launch, introducing, features, update.
-    - Links: Exactly 1 link (no buttons) - this should be the link to the full issue.
     - Closing: Add a natural soft question at the end (e.g., "let me know if this helps").
     - Personalization: Use the name {user_name} naturally.
     
@@ -53,7 +52,7 @@ def safety_filter(email_text):
     Returns True if the email passes human-like constraints.
     """
     lower_text = email_text.lower()
-    forbidden = ["exciting", "launch", "introducing", "features", "update", "<tr>", "<td>", "http"] # http check is tricky, but we want max 1 link
+    forbidden = ["exciting", "launch", "introducing", "features", "update", "<tr>", "<td>"] 
     
     # Check forbidden words
     for word in forbidden[:5]: # just the marketing words for now
@@ -70,14 +69,13 @@ def safety_filter(email_text):
         return False
         
     # Check link count
-    links = re.findall(r'https?://', email_text)
-    if len(links) > 1:
+    if "[ISSUE_LINK]" not in email_text:
         return False
         
     return True
 
 def _fallback_humanize(user_name, context):
     """Simple hardcoded fallback if LLM fails."""
-    return f"hey {user_name},\n\njust wanted to drop over some notes on {context} that I found recently. it seemed relevant to what we were looking at.\n\nhere is the link to the full list: {os.getenv('BASE_URL', 'http://localhost:8000')}/daily\n\nlet me know if you catch anything interesting in there."
+    return f"hey {user_name},\n\njust wanted to drop over some notes on {context} that I found recently. it seemed relevant to what we were looking at.\n\nhere is the link to the full list: [ISSUE_LINK]\n\nlet me know if you catch anything interesting in there."
 
 import os

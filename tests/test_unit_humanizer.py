@@ -10,36 +10,31 @@ from lib.humanizer import safety_filter, humanize_email, _fallback_humanize
 
 class TestHumanizer(unittest.TestCase):
     def test_safety_filter_valid(self):
-        valid_text = "Hey Nirbhay,\n\nI found some interesting threat intelligence today.\nHere is the link: https://zerodaily.in/daily?id=123\n\nHope this helps, let me know if this helps!"
+        valid_text = "Hey Nirbhay,\n\nI found some interesting threat intelligence today.\nHere is the link: [ISSUE_LINK]\n\nHope this helps, let me know if this helps!"
         self.assertTrue(safety_filter(valid_text))
 
     def test_safety_filter_forbidden_words(self):
         # Contains forbidden marketing words
         invalid_words = [
-            "Hey Nirbhay,\n\nThis exciting new update is here!\nhttps://zerodaily.in/daily",
-            "Hey Nirbhay,\n\nIntroducing our latest launch!\nhttps://zerodaily.in/daily",
-            "Hey Nirbhay,\n\nCheck out the new features!\nhttps://zerodaily.in/daily"
+            "Hey Nirbhay,\n\nThis exciting new update is here!\n[ISSUE_LINK]",
+            "Hey Nirbhay,\n\nIntroducing our latest launch!\n[ISSUE_LINK]",
+            "Hey Nirbhay,\n\nCheck out the new features!\n[ISSUE_LINK]"
         ]
         for text in invalid_words:
             self.assertFalse(safety_filter(text))
 
     def test_safety_filter_html(self):
         # Contains HTML
-        html_text = "Hey Nirbhay,\n\nI saw this <b>CVE-2026-1234</b>.\nhttps://zerodaily.in/daily"
+        html_text = "Hey Nirbhay,\n\nI saw this <b>CVE-2026-1234</b>.\n[ISSUE_LINK]"
         self.assertFalse(safety_filter(html_text))
-
-    def test_safety_filter_multiple_links(self):
-        # Contains multiple links
-        multi_link = "Hey Nirbhay,\n\nCheck link1: https://zerodaily.in/1 and link2: https://zerodaily.in/2"
-        self.assertFalse(safety_filter(multi_link))
 
     def test_safety_filter_length(self):
         # Too short (less than 3 lines)
-        short_text = "Hey Nirbhay, check this: https://zerodaily.in"
+        short_text = "Hey Nirbhay, check this: [ISSUE_LINK]"
         self.assertFalse(safety_filter(short_text))
         
         # Too long (more than 10 lines)
-        long_text = "\n".join([f"Line {i}" for i in range(12)])
+        long_text = "\n".join([f"Line {i} [ISSUE_LINK]" for i in range(12)])
         self.assertFalse(safety_filter(long_text))
 
     def test_fallback_humanize(self):
@@ -55,7 +50,7 @@ class TestHumanizer(unittest.TestCase):
         mock_llm_client_cls.return_value = mock_client
         
         # LLM returns a safe humanized email
-        safe_response = "Hey Nirbhay,\n\nI saw a critical vulnerability in standard router OS.\nHere is the link: https://zerodaily.in/daily?id=1\n\nlet me know if this helps!"
+        safe_response = "Hey Nirbhay,\n\nI saw a critical vulnerability in standard router OS.\nHere is the link: [ISSUE_LINK]\n\nlet me know if this helps!"
         mock_client.generate.return_value = safe_response
         
         try:
@@ -74,7 +69,7 @@ class TestHumanizer(unittest.TestCase):
         mock_llm_client_cls.return_value = mock_client
         
         # LLM returns something that fails safety (e.g. contains forbidden marketing words)
-        unsafe_response = "Hey Nirbhay,\n\nThis is an exciting new launch with amazing features!\nhttps://zerodaily.in/daily"
+        unsafe_response = "Hey Nirbhay,\n\nThis is an exciting new launch with amazing features!\n[ISSUE_LINK]"
         mock_client.generate.return_value = unsafe_response
         
         try:

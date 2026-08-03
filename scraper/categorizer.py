@@ -14,7 +14,7 @@ load_dotenv(_env_path, override=True)
 @async_rate_limit_and_retry(max_retries=3, base_delay=2.0)
 async def categorize_article(title: str, summary: str) -> str:
     """
-    Categorizes a cybersecurity article based on its title and summary.
+    Categorizes a cybersecurity article based on its title and summary in english.
     Always returns exactly one of the predefined category names.
     """
     categories = [
@@ -40,11 +40,12 @@ async def categorize_article(title: str, summary: str) -> str:
     Article Summary: {summary}
     
     Return ONLY the category name. Do not output anything else.
+    You MUST reply ONLY in English.
     """
     
     raw_category = await client.generate(
         messages=[
-            {"role": "system", "content": "You are a strict categorization system. Output exactly one category name."},
+            {"role": "system", "content": "You are a strict categorization system. Output exactly one category name. You MUST reply ONLY in English."},
             {"role": "user", "content": prompt}
         ],
         model="deepseek-chat",

@@ -25,7 +25,7 @@ class DeepSeekClient:
             max_retries=0     # Disable built-in retries so our custom loop controls it
         )
     
-    async def generate(self, messages: list, model: str = "deepseek-chat", temperature: float = 0.7, max_tokens: int = 1500) -> str:
+    async def generate(self, messages: list, model: str = "deepseek-v4-flash", temperature: float = 0.7, max_tokens: int = 1500) -> str:
         """
         Generates text using the DeepSeek API with retry and timeout logic.
         """
