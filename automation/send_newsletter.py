@@ -3,6 +3,7 @@ import sys
 import time
 import json
 import logging
+from html import escape
 
 # Add project root to sys.path at index 0 to avoid Linux 'lib' folder collisions
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -16,7 +17,6 @@ import secrets
 from lib.content import get_latest_issue
 from lib.notifications import FROM_EMAIL, BASE_URL, validate_sender_domain
 from lib.db import get_db_client
-from lib.humanizer import humanize_email, safety_filter
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -29,6 +29,56 @@ resend.api_key = os.getenv("RESEND_API_KEY", "")
 
 
 import asyncio
+
+
+def _build_roast_email(roasts: list, issue_url: str) -> tuple[str, str]:
+    """Build the plain-text and HTML versions of the roast-only newsletter."""
+    clean_roasts = [str(roast).strip() for roast in roasts if str(roast).strip()]
+
+    text_parts = clean_roasts + [
+        f"Read the full issue: {issue_url}",
+        "ZeroDay Daily • Cybersecurity intelligence.",
+    ]
+    text_body = "\n\n".join(text_parts)
+
+    roast_html = "".join(
+        f'<p style="margin:0 0 24px;font-size:17px;line-height:1.7;color:#111111;">'
+        f'{escape(roast).replace(chr(10), "<br>")}</p>'
+        for roast in clean_roasts
+    )
+    escaped_issue_url = escape(issue_url, quote=True)
+    html_body = f"""<!DOCTYPE html>
+<html lang="en">
+<body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background-color:#ffffff;color:#111111;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#ffffff;padding:40px 0;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;margin:0 auto;text-align:left;">
+          <tr>
+            <td style="padding:20px;">
+              {roast_html}
+              <table cellpadding="0" cellspacing="0" style="margin-top:32px;">
+                <tr>
+                  <td style="border-radius:8px;background:#111827;">
+                    <a href="{escaped_issue_url}" style="display:inline-block;padding:14px 24px;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;border-radius:8px;">Read the full issue</a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:20px;border-top:1px solid #eeeeee;font-size:13px;color:#666666;">
+              <p style="margin:0;">ZeroDay Daily &bull; Cybersecurity intelligence.</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>"""
+
+    return text_body, html_body
 
 async def send_newsletters():
     start_time = time.time()
@@ -57,7 +107,6 @@ async def send_newsletters():
     # by looking at logger if we had a shared state. For now, we'll assume 'no' unless we catch a warning.
     
     date_str = latest_issue.get("date", "Latest")
-    top_stories = latest_issue.get("top_stories", [])
     status["scrape"] = "success"
     status["upload"] = "success" # If we found it, it was ideally uploaded
 
@@ -73,65 +122,6 @@ async def send_newsletters():
         return status
     logger.info(f"[EMAIL] sender check passed. {sender_reason}")
 
-    # Generate the email story blocks
-    story_html = ""
-    for idx, story in enumerate(top_stories, 1):
-        story_html += f"""
-        <tr>
-            <td style="padding: 24px 0; border-bottom: 1px solid #f1f5f9;">
-                <h3 style="margin: 0 0 8px 0; font-size: 18px; color: #0f172a; font-weight: 600;">{idx}. {story.get('title', '')}</h3>
-                <p style="margin: 0; font-size: 15px; color: #475569; line-height: 1.6;">{story.get('short_summary', '')}</p>
-            </td>
-        </tr>
-        """
-    # (Rest of base_html omitted for brevity in chunk, but stays in file)
-    base_html = f"""<!DOCTYPE html>
-<html lang="en">
-<body style="margin:0;padding:0;background-color:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f8fafc;padding:40px 0;">
-    <tr>
-      <td align="center">
-        <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e2e8f0;box-shadow:0 4px 6px -1px rgba(0,0,0,0.05);">
-          <tr>
-            <td style="background:#ffffff;padding:48px 40px 24px;text-align:center;border-bottom:1px solid #f1f5f9;">
-              <div style="display:inline-block;background:#f3e8ff;border-radius:6px;padding:6px 14px;margin-bottom:16px;">
-                <span style="color:#7e22ce;font-size:12px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;">ZeroDay Daily</span>
-              </div>
-              <h1 style="color:#0f172a;font-size:26px;font-weight:700;margin:0;line-height:1.3;letter-spacing:-0.5px;">
-                Issue for {date_str}
-              </h1>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding:16px 40px 48px;">
-              <p style="color:#64748b;font-size:16px;line-height:1.6;margin:0 0 32px;text-align:center;">
-                Here are the top cybersecurity stories for today.
-              </p>
-              <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 32px;">
-                {story_html}
-              </table>
-              <table cellpadding="0" cellspacing="0" style="margin:0 auto;">
-                <tr>
-                  <td align="center" style="border-radius:8px;background:linear-gradient(135deg,#8b5cf6,#6366f1);box-shadow:0 4px 14px 0 rgba(139,92,246,0.39);">
-                    <a href="{BASE_URL}/daily" style="display:inline-block;padding:14px 32px;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;border-radius:8px;letter-spacing:0.3px;">Explore Full Issue</a>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-          <tr>
-            <td style="background:#f8fafc;padding:32px 40px;border-top:1px solid #e2e8f0;text-align:center;">
-              <p style="color:#94a3b8;font-size:13px;margin:0 0 12px;">ZeroDay Daily &bull; Cybersecurity intelligence.</p>
-              <p style="margin:0;"><a href="{{unsubscribe_url}}" style="color:#cbd5e1;font-size:12px;text-decoration:underline;">Unsubscribe</a></p>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>"""
-
     # 2. Fetch subscribers
     sub_start = time.time()
     db = get_db_client()
@@ -144,7 +134,7 @@ async def send_newsletters():
         _print_summary(status, start_time)
         return status
 
-    # 3. Send personalised humanized emails individually
+    # 3. Send a roast-only teaser with a unique tracked issue link.
     success_count = 0
     for sub in subscribers:
         try:
@@ -155,75 +145,18 @@ async def send_newsletters():
                 logger.info(f"[EMAIL] idempotency check passed: skipping {email}, already sent for issue {date_str}.")
                 continue
                 
-            name = email.split('@')[0] if email else "there"
-            
             # Use unique track token
             track_token = secrets.token_urlsafe(16)
-            
-            # Humanize
-            context = f"the {date_str} cybersecurity issue"
-            human_text = await humanize_email(base_html, name, context)
-            
-            # Safety Filter
-            if not safety_filter(human_text):
-                logger.debug(f"[EMAIL] safety filter flagged email for {email}. Skipping.")
-                continue
-                
-            # Inject tracking
             track_url = f"{BASE_URL}/daily?track={track_token}"
-            if "[ISSUE_LINK]" in human_text:
-                human_text = human_text.replace("[ISSUE_LINK]", track_url)
-            else:
-                human_text += f"\n\nlink to full issue: {track_url}"
-
-            # Prepend roasts
             roasts = latest_issue.get("roast_summary", [])
-            if roasts:
-                roasts_text = "\n\n".join(roasts)
-                human_text = f"{roasts_text}\n\n---\n\n{human_text}"
-
-            # Convert basic plain text features to HTML
-            import re
-            html_text = human_text.replace('\n', '<br>')
-            html_text = re.sub(r'(https?://[^\s<>]+)', r'<a href="\1" style="color: #3b82f6; text-decoration: none;">\1</a>', html_text)
-
-            attractive_html = f"""<!DOCTYPE html>
-<html lang="en">
-<body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background-color:#ffffff;color:#111111;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#ffffff;padding:40px 0;">
-    <tr>
-      <td align="center">
-        <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;margin:0 auto;text-align:left;">
-          <tr>
-            <td style="padding:20px;font-size:16px;line-height:1.7;color:#111111;">
-              {html_text}
-            </td>
-          </tr>
-          <tr>
-            <td style="padding:0 20px;">
-              <table width="100%" cellpadding="0" cellspacing="0" style="margin-top: 20px; border-top: 1px solid #f1f5f9;">
-                {story_html}
-              </table>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding:20px;border-top:1px solid #eeeeee;font-size:13px;color:#666666;margin-top:30px;">
-              <p style="margin:0;">ZeroDay Daily &bull; Cybersecurity intelligence.</p>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>"""
+            text_body, html_body = _build_roast_email(roasts, track_url)
 
             params: resend.Emails.SendParams = {
                 "from": FROM_EMAIL,
                 "to": [email],
                 "subject": f"notes on {date_str} for you",
-                "text": human_text,
-                "html": attractive_html,
+                "text": text_body,
+                "html": html_body,
             }
             resend.Emails.send(params)
             

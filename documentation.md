@@ -129,10 +129,11 @@ Any attempt pushing final execution states to AWS S3 utilizes an isolated wrappe
 ## 5. Automation Orchestration (`automation/send_newsletter.py`)
 
 ### 5.1 Security Abstractions & Verification
-Outbound marketing mail is never generated raw. Before Resend API triggering:
+Before Resend API triggering, newsletter dispatch:
 1. Validates standard domain via `resend.Domains.list()` checking for `verified` constraints dynamically to avoid DKIM/SPF rejection drops.
 2. Extracts payload logic directly utilizing an internal instance of `lib.content.get_latest_issue()`, bypassing recursive S3 requests using internal memory exclusively.
-3. Sends `resend.Emails.send()` utilizing `BCC` natively mapped to `"undisclosed-recipients@zerodaily.news"` mitigating entire mailing list leak exposures.
+3. Builds a concise email from the issue's security roasts and a unique tracked link to the full issue; story titles and summaries remain on the website.
+4. Sends each subscriber a separate `resend.Emails.send()` request so recipients remain private and tracking tokens remain unique.
 
 ### 5.2 Bot Analytical Email Dispatch
 The very last step of the bot is self-reporting its hardware status. An email is dispatched automatically to admin administrators with a raw HTML block tracking internal Python benchmarks:
