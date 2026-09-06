@@ -8,7 +8,6 @@ from newspaper import Article
 
 
 
-
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 # sources to fetch the content 
@@ -17,7 +16,7 @@ NEWS_FEEDS = [
     "https://feeds.feedburner.com/TheHackersNews", # The Hacker News
     "https://www.bleepingcomputer.com/feed/",
     "https://krebsonsecurity.com/feed/",
-    "https://www.darkreading.com/rss.xml",
+    "https://www.darkreading.com/rss.xml",  
     "https://www.securityweek.com/rss",
     "https://blog.cloudflare.com/rss/", # Cloudflare Blog
     "https://googleprojectzero.blogspot.com/feeds/posts/default?alt=rss", # Google Project Zero
@@ -195,6 +194,7 @@ def main():
     scrape_start = time.time()
     news = scrape_news()
     cves = scrape_cves()
+    
     scrape_time = time.time() - scrape_start
 
     output = {
